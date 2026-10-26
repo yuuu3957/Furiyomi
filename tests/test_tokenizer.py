@@ -7,28 +7,40 @@ def find(tokens, surface):
     return next(t for t in tokens if t.surface == surface)
 
 
+def surfaces(text):
+    return [t.surface for t in tokenize(text)]
+
+
 def test_acceptance_example():
-    t = find(tokenize("昨日、寿司を食べました。"), "食べました")
-    assert t.lemma == "食べる"
-    assert t.reading == "たべました"
-    assert t.pos == "動詞"
-    assert t.conj_form == "連用形"
+    # 不合併：食べました 拆成 食べ／まし／た，接起來就是使用者選取整段的結果
+    tokens = tokenize("昨日、寿司を食べました。")
+    tabe = find(tokens, "食べ")
+    assert (tabe.lemma, tabe.reading, tabe.pos, tabe.conj_form) == ("食べる", "たべ", "動詞", "連用形")
+    assert find(tokens, "まし").lemma == "ます"
+    i = tokens.index(tabe)
+    span = tokens[i:i + 3]
+    assert "".join(t.surface for t in span) == "食べました"
+    assert "".join(t.reading for t in span) == "たべました"
 
 
 @pytest.mark.parametrize("text, surface, lemma, reading", [
-    ("先生に褒められた。", "褒められた", "褒める", "ほめられた"),          # 被動
-    ("子供に野菜を食べさせる。", "食べさせる", "食べる", "たべさせる"),    # 使役
-    ("あの映画は面白かった。", "面白かった", "面白い", "おもしろかった"),  # 形容詞過去
-    ("昨日は雨でした。", "でした", "です", "でした"),                      # 助動詞連續
+    ("先生に褒められた。", "褒め", "褒める", "ほめ"),        # 被動
+    ("子供に野菜を食べさせる。", "食べ", "食べる", "たべ"),  # 使役
+    ("あの映画は面白かった。", "面白かっ", "面白い", "おもしろかっ"),  # 形容詞過去
 ])
 def test_conjugation_restored(text, surface, lemma, reading):
     t = find(tokenize(text), surface)
     assert (t.lemma, t.reading) == (lemma, reading)
 
 
-def test_noun_not_merged_with_copula():
-    surfaces = [t.surface for t in tokenize("学生です。")]
-    assert surfaces == ["学生", "です", "。"]
+@pytest.mark.parametrize("text, grammar", [
+    ("明日は雨が降るらしい。", "らしい"),
+    ("雨が降るだろう。", "だろう"),
+    ("先生に褒められた。", "られ"),
+])
+def test_grammar_kept_as_separate_token(text, grammar):
+    # 文法助動詞要能單獨點選，不能被前面的動詞吃掉
+    assert find(tokenize(text), grammar).pos == "助動詞"
 
 
 def test_particles_and_punctuation():
@@ -53,7 +65,7 @@ def test_mixed_alphanumeric_and_whitespace():
     space = find(tokens, " ")
     assert space.pos == "空白"
     assert space.reading == " "
-    assert find(tokens, "買った").lemma == "買う"
+    assert find(tokens, "買っ").lemma == "買う"
 
 
 @pytest.mark.parametrize("text", [
@@ -62,19 +74,13 @@ def test_mixed_alphanumeric_and_whitespace():
     "はい。はい。",
 ])
 def test_surfaces_reconstruct_original(text):
-    assert "".join(t.surface for t in tokenize(text)) == text
+    assert "".join(surfaces(text)) == text
 
 
 def test_sentence_attached_to_tokens():
     tokens = tokenize("雨が降った。傘を買う。")
-    assert find(tokens, "降った").sentence == "雨が降った。"
+    assert find(tokens, "降っ").sentence == "雨が降った。"
     assert find(tokens, "傘").sentence == "傘を買う。"
-
-
-def test_merge_does_not_cross_sentences():
-    # 句尾的「た」不能吸收下一句開頭的詞
-    surfaces = [t.surface for t in tokenize("食べた。です")]
-    assert surfaces == ["食べた", "。", "です"]
 
 
 def test_split_sentences_keeps_delimiters():
