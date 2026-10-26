@@ -1,0 +1,25 @@
+# Claude Code
+CLAUDE.md
+.claude/
+
+# 環境變數與金鑰
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# SQLite
+*.db
+*.sqlite3
+
+# 編輯器與系統
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
