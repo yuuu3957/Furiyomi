@@ -30,14 +30,14 @@
 
 ## 設計理念
 
-斷詞、讀音、原形、詞性這些有標準答案的事，交給 [SudachiPy](https://github.com/WorksApplications/SudachiPy) 處理，結果穩定、不花錢、不會出錯。只有「這個字在這句話裡是什麼意思」這種需要語意理解的部分，才交給 LLM。
+斷詞、讀音、原形、詞性這些有標準答案的事，交給 [SudachiPy](https://github.com/WorksApplications/SudachiPy) 處理，結果穩定、不花錢。數字讀音（如 1本→いっぽん、10分→じゅっぷん）則交給 [pyopenjtalk](https://github.com/r9y9/pyopenjtalk)。只有「這個字在這句話裡是什麼意思」這種需要語意理解的部分，才交給 LLM。
 
 ## 技術
 
 | 層 | 使用 |
 |---|---|
 | 後端 | Python、FastAPI、Pydantic |
-| 斷詞 | SudachiPy |
+| 斷詞 | SudachiPy；數字讀音用 pyopenjtalk |
 | 前端 | HTML + 原生 JavaScript + CSS（`<ruby>` 標籤） |
 | 資料庫 | SQLite |
 | 測試 | pytest、FastAPI TestClient |

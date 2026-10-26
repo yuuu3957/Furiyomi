@@ -68,10 +68,48 @@ def test_mixed_alphanumeric_and_whitespace():
     assert find(tokens, "買っ").lemma == "買う"
 
 
+@pytest.mark.parametrize("text, reading", [
+    ("15", "じゅうご"),
+    ("2026", "にせんにじゅうろく"),
+    ("1,000", "せん"),
+    ("１５", "じゅうご"),        # 全形數字
+    ("1本", "いっぽん"),
+    ("6本", "ろっぽん"),
+    ("10分", "じゅっぷん"),
+    ("3日", "みっか"),
+    ("20日", "はつか"),
+    ("4時", "よじ"),
+    ("4月", "しがつ"),
+    ("1匹", "いっぴき"),
+    ("100円", "ひゃくえん"),
+    ("1つ", "ひとつ"),
+])
+def test_number_and_counter_reading(text, reading):
+    # 數字和量詞合成一個 Token，讀音含音變
+    tokens = tokenize(text)
+    assert len(tokens) == 1
+    assert (tokens[0].surface, tokens[0].reading, tokens[0].pos) == (text, reading, "名詞")
+
+
+def test_number_in_sentence():
+    tokens = tokenize("約3時間かかった。第1回は10人以上来た。")
+    assert find(tokens, "3時間").reading == "さんじかん"
+    assert find(tokens, "第").pos == "接頭辞"       # 接頭辭不合併
+    assert find(tokens, "1回").reading == "いっかい"
+    assert find(tokens, "10人").reading == "じゅうにん"
+    assert find(tokens, "以上").reading == "いじょう"
+
+
+def test_number_reading_known_error():
+    # 已知限制：pyopenjtalk 字典把 10日 記成「とうか」（正確為とおか）
+    assert find(tokenize("10日"), "10日").reading == "とうか"
+
+
 @pytest.mark.parametrize("text", [
     "昨日、寿司を食べました。\n\n  今日は雨です！",
     "iPhone 15を買った！ABC",
     "はい。はい。",
+    "2026年10月1日に3本買った。",
 ])
 def test_surfaces_reconstruct_original(text):
     assert "".join(surfaces(text)) == text
