@@ -28,3 +28,8 @@
 - **顯示／隱藏假名**：用 `visibility: hidden` 而非移除，切換時行高不變、文章不會跳動。
 - **「信じ」原形錯誤**：我實際使用時發現點「信じ」原形顯示「信ずる」。AI 查出 Sudachi 把「信じ／感じ／禁じ」歸為サ変、原形給文語形；改成表記是「〜じ」時原形改回「〜じる」，原文本來寫「信ずる」就不動。
 - **詞性上色開關**：我希望上色可以關掉，加了和「顯示假名」並列的開關，關閉時圖例一起隱藏。
+
+## MCP server
+
+- **前兩個工具**：AI 用官方 `mcp` 套件的 FastMCP 建立 `mcp_server.py`，提供 `analyze_japanese` 和 `add_furigana`。工具只呼叫 `core`，括號標音的組字邏輯放在 `furigana.bracket_text`，重用網頁 ruby 的切分，所以送假名一樣不標（食(た)べ）。`analyze_japanese` 依規格只回傳表記、原形、讀音、詞性。
+- **驗證**：除了 pytest 直接呼叫工具函式，AI 也用 MCP client 經 stdio 實際連線、呼叫工具，確認 server 能正常啟動。
