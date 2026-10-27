@@ -13,7 +13,8 @@ from dataclasses import dataclass, fields
 from functools import lru_cache
 from typing import Protocol
 
-DEFAULT_MODEL = "gpt-4o-mini"
+# 開發測試用 gpt-4.1-mini；展示時在 .env 設 OPENAI_MODEL=gpt-5.4-mini（說明較自然，但較貴）
+DEFAULT_MODEL = "gpt-4.1-mini"
 TIMEOUT_SECONDS = 20
 
 SYSTEM_PROMPT = """你是日文老師，對象是程度 N4～N2、母語為繁體中文的學習者。

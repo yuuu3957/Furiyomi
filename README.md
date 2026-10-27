@@ -37,7 +37,7 @@
 |---|---|
 | 後端 | Python、FastAPI、Pydantic |
 | 斷詞 | SudachiPy；數字讀音用 pyopenjtalk |
-| AI 解釋 | OpenAI API（預設 gpt-4o-mini，可在 .env 用 OPENAI_MODEL 更換） |
+| AI 解釋 | OpenAI API（預設 gpt-4.1-mini；展示用 gpt-5.4-mini，在 .env 用 OPENAI_MODEL 切換） |
 | 前端 | HTML + 原生 JavaScript + CSS（`<ruby>` 標籤） |
 | 資料庫 | SQLite |
 | 測試 | pytest、FastAPI TestClient |
