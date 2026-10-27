@@ -50,6 +50,15 @@ def _conj_form(raw: str) -> str:
     return "" if raw == "*" else raw.split("-")[0]
 
 
+def _lemma(morpheme) -> str:
+    """原形。Sudachi 把「信じ」「感じ」歸為サ変，原形給文語的「信ずる」；
+    表記是「〜じ」時改回現代的「〜じる」，原文本來就寫「信ずる」「信ぜず」則不動。"""
+    lemma = morpheme.dictionary_form()
+    if lemma.endswith("ずる") and morpheme.surface().startswith(lemma[:-2] + "じ"):
+        return lemma[:-2] + "じる"
+    return lemma
+
+
 def _reading(morpheme, pos: str) -> str:
     if pos in _NO_READING_POS:
         return morpheme.surface()
@@ -127,7 +136,7 @@ def tokenize(text: str) -> list[Token]:
             pos = pos_info[0]
             tokens.append(Token(
                 surface=m.surface(),
-                lemma=m.dictionary_form(),
+                lemma=_lemma(m),
                 reading=_reading(m, pos),
                 pos=pos,
                 conj_form=_conj_form(pos_info[5]),

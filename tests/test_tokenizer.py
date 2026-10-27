@@ -27,10 +27,17 @@ def test_acceptance_example():
     ("先生に褒められた。", "褒め", "褒める", "ほめ"),        # 被動
     ("子供に野菜を食べさせる。", "食べ", "食べる", "たべ"),  # 使役
     ("あの映画は面白かった。", "面白かっ", "面白い", "おもしろかっ"),  # 形容詞過去
+    ("信じられない。", "信じ", "信じる", "しんじ"),          # Sudachi 原形給文語「信ずる」
+    ("寒さを感じた。", "感じ", "感じる", "かんじ"),
+    ("撮影は禁じられた。", "禁じ", "禁じる", "きんじ"),
 ])
 def test_conjugation_restored(text, surface, lemma, reading):
     t = find(tokenize(text), surface)
     assert (t.lemma, t.reading) == (lemma, reading)
+
+
+def test_literary_zuru_kept_when_written_so():
+    assert find(tokenize("神を信ずる。"), "信ずる").lemma == "信ずる"
 
 
 @pytest.mark.parametrize("text, grammar", [
