@@ -73,7 +73,7 @@ function renderArticle(newTokens) {
   reader.hidden = false;
 }
 
-// 整段的表記、讀音直接相接；原形、詞性沿用第一個 Token。活用形只對單一 Token 有意義
+// 整段的表記、讀音直接相接；原形、詞性沿用第一個 Token
 function describeSelection(start, end) {
   const picked = tokens.slice(start, end + 1);
   const first = picked[0];
@@ -82,7 +82,6 @@ function describeSelection(start, end) {
     reading: picked.map((t) => t.reading).join(""),
     lemma: first.lemma,
     pos: first.pos,
-    conj_form: picked.length === 1 ? first.conj_form : null,
   };
 }
 
@@ -98,10 +97,6 @@ function showDetail(info) {
   setField("d-reading", info.reading);
   setField("d-lemma", info.lemma);
   setField("d-pos", info.pos);
-  const single = info.conj_form !== null;
-  document.getElementById("d-conj-label").hidden = !single;
-  document.getElementById("d-conj").hidden = !single;
-  if (single) setField("d-conj", info.conj_form);
 }
 
 function select(start, end) {
