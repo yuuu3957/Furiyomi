@@ -1,6 +1,6 @@
 import pytest
 
-from core.furigana import contains_japanese, katakana_to_hiragana, ruby_segments
+from core.furigana import contains_japanese, katakana_to_hiragana, pos_class, ruby_segments
 
 
 def test_katakana_to_hiragana():
@@ -51,3 +51,19 @@ def test_ruby_falls_back_to_whole_token_when_reading_does_not_match():
 ])
 def test_contains_japanese(text, expected):
     assert contains_japanese(text) == expected
+
+
+@pytest.mark.parametrize("pos, expected", [
+    ("名詞", "noun"),
+    ("代名詞", "noun"),
+    ("動詞", "verb"),
+    ("形状詞", "adjective"),
+    ("副詞", "adverb"),
+    ("助動詞", "auxiliary"),
+    ("助詞", "particle"),
+    ("接頭辞", "affix"),
+    ("補助記号", "symbol"),
+    ("未知の詞性", "other"),
+])
+def test_pos_class(pos, expected):
+    assert pos_class(pos) == expected

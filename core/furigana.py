@@ -1,4 +1,4 @@
-"""假名相關的純函式：片假名→平假名、ruby 切分、日文偵測（詞性配色之後加入）。"""
+"""假名相關的純函式：片假名→平假名、ruby 切分、日文偵測、詞性配色。"""
 
 import re
 
@@ -10,6 +10,18 @@ _KATA_TO_HIRA = 0x60
 # 要標讀音的字：漢字（含「々」「〆」）與數字；數字＋量詞的音變讀音無法拆開，跟漢字一起當一組
 _RUBY_CHARS = re.compile(r"[㐀-䶿一-鿿豈-﫿々〆0-9０-９]+")
 _KANA = re.compile(r"[ぁ-ゖァ-ヺ]")
+
+# Sudachi 詞性第一層 → 前端配色分類（對應 style.css 的 .pos-*）
+_POS_CLASS = {
+    "名詞": "noun", "代名詞": "noun",
+    "動詞": "verb",
+    "形容詞": "adjective", "形状詞": "adjective", "連体詞": "adjective",
+    "副詞": "adverb", "接続詞": "adverb", "感動詞": "adverb",
+    "助動詞": "auxiliary",
+    "助詞": "particle",
+    "接頭辞": "affix", "接尾辞": "affix",
+    "補助記号": "symbol", "記号": "symbol", "空白": "symbol",
+}
 
 
 def katakana_to_hiragana(text: str) -> str:
@@ -44,3 +56,8 @@ def ruby_segments(surface: str, reading: str) -> list[tuple[str, str | None]]:
         (p, next(readings) if i % 2 else None)
         for i, p in enumerate(parts) if p
     ]
+
+
+def pos_class(pos: str) -> str:
+    """詞性對應的配色分類；沒列到的詞性歸為 other。"""
+    return _POS_CLASS.get(pos, "other")

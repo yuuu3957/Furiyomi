@@ -21,7 +21,34 @@
       <p id="message" class="message" hidden></p>
     </section>
 
-    <section id="article" class="article" lang="ja" hidden></section>
+    <div id="reader" class="reader" hidden>
+      <section class="article-area">
+        <div class="toolbar">
+          <label><input id="ruby-toggle" type="checkbox" checked> 顯示假名</label>
+          <ul class="legend">
+            <li class="pos-noun">名詞</li>
+            <li class="pos-verb">動詞</li>
+            <li class="pos-adjective">形容詞</li>
+            <li class="pos-adverb">副詞</li>
+            <li class="pos-auxiliary">助動詞</li>
+            <li class="pos-particle">助詞</li>
+          </ul>
+        </div>
+        <div id="article" class="article" lang="ja"></div>
+        <p class="hint">點一下單字看詳情；按住 Shift 再點同一句的另一個字，可選取整段。</p>
+      </section>
+
+      <aside id="detail" class="detail">
+        <p id="detail-empty" class="detail-empty">點選文章中的單字，這裡會顯示詳情。</p>
+        <dl id="detail-body" hidden>
+          <dt>表記</dt><dd id="d-surface" class="big" lang="ja"></dd>
+          <dt>讀音</dt><dd id="d-reading" lang="ja"></dd>
+          <dt>原形</dt><dd id="d-lemma" lang="ja"></dd>
+          <dt>詞性</dt><dd id="d-pos" lang="ja"></dd>
+          <dt id="d-conj-label">活用形</dt><dd id="d-conj" lang="ja"></dd>
+        </dl>
+      </aside>
+    </div>
   </main>
 
   <script src="app.js"></script>

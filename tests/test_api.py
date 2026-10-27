@@ -18,6 +18,7 @@ def test_analyze_returns_tokens_with_ruby():
     tabe = next(t for t in tokens if t["surface"] == "食べ")
     assert tabe["lemma"] == "食べる"
     assert tabe["ruby"] == [{"text": "食", "rt": "た"}, {"text": "べ", "rt": None}]
+    assert tabe["pos_class"] == "verb"
     wo = next(t for t in tokens if t["surface"] == "を")
     assert wo["ruby"] == [{"text": "を", "rt": None}]
 

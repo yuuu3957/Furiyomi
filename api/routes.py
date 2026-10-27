@@ -5,7 +5,7 @@ from dataclasses import asdict
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from core.furigana import contains_japanese, ruby_segments
+from core.furigana import contains_japanese, pos_class, ruby_segments
 from core.tokenizer import tokenize
 
 MAX_TEXT_LENGTH = 2000
@@ -39,6 +39,7 @@ def analyze(req: AnalyzeRequest):
         "tokens": [
             {
                 **asdict(t),
+                "pos_class": pos_class(t.pos),
                 "ruby": [{"text": s, "rt": rt} for s, rt in ruby_segments(t.surface, t.reading)],
             }
             for t in tokenize(text)

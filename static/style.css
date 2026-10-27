@@ -5,6 +5,16 @@
   --border: #ddd;
   --accent: #3b6ea5;
   --error: #b3261e;
+  --selected: #fff1b8;
+
+  /* 詞性配色（class 名稱來自 core/furigana.py 的 pos_class） */
+  --pos-noun: #1f4e8c;
+  --pos-verb: #b03a2e;
+  --pos-adjective: #1e7b4f;
+  --pos-adverb: #8a5a00;
+  --pos-auxiliary: #7b3fa0;
+  --pos-particle: #666;
+  --pos-other: #222;
 }
 
 * { box-sizing: border-box; }
@@ -25,7 +35,7 @@ h1 { margin: 0; font-size: 1.4rem; }
 h1 .sub { color: var(--muted); font-size: 1rem; font-weight: normal; }
 
 main {
-  max-width: 860px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
 }
@@ -64,8 +74,35 @@ button:disabled { opacity: 0.5; cursor: wait; }
 
 .message { color: var(--error); }
 
-.article {
+.reader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
   margin-top: 24px;
+  align-items: start;
+}
+.reader[hidden] { display: none; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend li::before { content: "■ "; }
+
+.article {
   padding: 20px 24px;
   background: #fff;
   border: 1px solid var(--border);
@@ -79,4 +116,41 @@ button:disabled { opacity: 0.5; cursor: wait; }
 rt {
   font-size: 0.55em;
   color: var(--muted);
+}
+/* 用 visibility 而非 display，切換時行高不變、文章不會跳動 */
+.article.hide-ruby rt { visibility: hidden; }
+
+.pos-noun { color: var(--pos-noun); }
+.pos-verb { color: var(--pos-verb); }
+.pos-adjective { color: var(--pos-adjective); }
+.pos-adverb { color: var(--pos-adverb); }
+.pos-auxiliary { color: var(--pos-auxiliary); }
+.pos-particle { color: var(--pos-particle); }
+.pos-affix, .pos-symbol, .pos-other { color: var(--pos-other); }
+
+.token.clickable { cursor: pointer; border-radius: 3px; }
+.token.clickable:hover { background: #eef3f9; }
+.token.selected, .token.selected:hover { background: var(--selected); }
+
+.hint { color: var(--muted); font-size: 0.85rem; }
+
+.detail {
+  position: sticky;
+  top: 16px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.detail-empty { margin: 0; color: var(--muted); }
+.detail dl { margin: 0; }
+.detail dt { margin-top: 12px; color: var(--muted); font-size: 0.8rem; }
+.detail dt:first-child { margin-top: 0; }
+.detail dd { margin: 2px 0 0; font-size: 1.05rem; word-break: break-all; }
+.detail dd.big { font-size: 1.6rem; }
+.detail [hidden] { display: none; }
+
+@media (max-width: 760px) {
+  .reader { grid-template-columns: 1fr; }
+  .detail { position: static; }
 }
