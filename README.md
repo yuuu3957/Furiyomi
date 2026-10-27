@@ -37,6 +37,7 @@
 |---|---|
 | 後端 | Python、FastAPI、Pydantic |
 | 斷詞 | SudachiPy；數字讀音用 pyopenjtalk |
+| AI 解釋 | OpenAI API（預設 gpt-4o-mini，可在 .env 用 OPENAI_MODEL 更換） |
 | 前端 | HTML + 原生 JavaScript + CSS（`<ruby>` 標籤） |
 | 資料庫 | SQLite |
 | 測試 | pytest、FastAPI TestClient |
@@ -66,8 +67,8 @@ python -m venv .venv
 # 安裝套件
 pip install -r requirements.txt
 
-# 設定 API 金鑰：在專案根目錄建立 .env（不會被 commit）
-# 金鑰名稱待 LLM 服務確定後補上
+# 設定 OpenAI API 金鑰：複製 .env.example 成 .env，填入 OPENAI_API_KEY（.env 不會被 commit）
+# 沒有金鑰時其他功能照常運作，只有 AI 解釋會顯示提示
 
 # 啟動
 uvicorn main:app --reload

@@ -33,3 +33,9 @@
 
 - **前兩個工具**：AI 用官方 `mcp` 套件的 FastMCP 建立 `mcp_server.py`，提供 `analyze_japanese` 和 `add_furigana`。工具只呼叫 `core`，括號標音的組字邏輯放在 `furigana.bracket_text`，重用網頁 ruby 的切分，所以送假名一樣不標（食(た)べ）。`analyze_japanese` 依規格只回傳表記、原形、讀音、詞性。
 - **驗證**：除了 pytest 直接呼叫工具函式，AI 也用 MCP client 經 stdio 實際連線、呼叫工具，確認 server 能正常啟動。
+
+## AI 解釋
+
+- **選定 OpenAI**：我有 OpenAI 的額度，所以決定用 OpenAI。AI 預設用 `gpt-4o-mini`（便宜、支援 JSON 模式），模型名稱放在 `.env`，之後可以直接換。`llm_client` 把 OpenAI 包在 Provider 介面後面，換服務只要換 Provider，測試也用假的 Provider，不連網路。
+- **錯誤處理**：回傳內容缺欄位、不是 JSON 或是空字串，自動重試一次。逾時、額度不足、金鑰錯誤是服務端的問題，重試也沒用，所以 AI 建議直接回傳友善訊息、不重試。沒設定金鑰時只有 AI 解釋會顯示提示，其他功能照常運作。
+- **前端**：詳情面板加上「AI 解釋」按鈕，助詞和標點不顯示。結果依「原形＋表記＋句子」暫存在記憶體，只存成功的結果。等待 AI 回應時如果點了別的字，回應回來後只存進快取，不會蓋掉目前的畫面。

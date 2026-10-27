@@ -1,6 +1,8 @@
 // 前端只負責顯示：斷詞、讀音、ruby 切分、詞性配色都由後端 /api/analyze 決定
 
 const MAX_LENGTH = 2000;
+// 助詞、標點可以點，但不提供 AI 解釋（pos_class 來自後端）
+const NO_AI_POS = new Set(["particle", "symbol"]);
 // 與後端 tokenizer 的切句規則一致：Token 以這些字元結尾就是句子的最後一個 Token
 const SENTENCE_END = /[。！？!?\n]$/;
 
@@ -14,11 +16,18 @@ const rubyToggle = document.getElementById("ruby-toggle");
 const colorToggle = document.getElementById("color-toggle");
 const detailEmpty = document.getElementById("detail-empty");
 const detailBody = document.getElementById("detail-body");
+const aiArea = document.getElementById("ai-area");
+const aiBtn = document.getElementById("ai-btn");
+const aiMessage = document.getElementById("ai-message");
+const aiResult = document.getElementById("ai-result");
 
 let tokens = [];
 let tokenEls = [];
 let sentenceIds = [];
 let anchor = null;  // Shift 選取的起點（Token 索引）
+let current = null; // 目前詳情面板顯示的選取內容
+// AI 解釋的快取（P3 做了 SQLite 後改由後端快取）；只存成功的結果
+const aiCache = new Map();
 
 function showMessage(text) {
   message.textContent = text;
@@ -82,7 +91,13 @@ function describeSelection(start, end) {
     reading: picked.map((t) => t.reading).join(""),
     lemma: first.lemma,
     pos: first.pos,
+    posClass: first.pos_class,
+    sentence: first.sentence,
   };
+}
+
+function aiKey(info) {
+  return JSON.stringify([info.lemma, info.surface, info.sentence]);
 }
 
 function setField(id, value) {
@@ -90,13 +105,65 @@ function setField(id, value) {
 }
 
 function showDetail(info) {
+  current = info;
   detailEmpty.hidden = !!info;
   detailBody.hidden = !info;
+  aiArea.hidden = !info || NO_AI_POS.has(info.posClass);
   if (!info) return;
   setField("d-surface", info.surface);
   setField("d-reading", info.reading);
   setField("d-lemma", info.lemma);
   setField("d-pos", info.pos);
+  showAiMessage("");
+  showAiResult(aiCache.get(aiKey(info)) ?? null);
+}
+
+function showAiMessage(text) {
+  aiMessage.textContent = text;
+  aiMessage.hidden = !text;
+}
+
+// 有結果時隱藏按鈕，沒有結果時顯示按鈕
+function showAiResult(result) {
+  aiResult.hidden = !result;
+  aiBtn.hidden = !!result;
+  aiBtn.disabled = false;
+  aiBtn.textContent = "AI 解釋";
+  if (!result) return;
+  setField("ai-meaning", result.meaning_zh);
+  setField("ai-usage", result.usage_note);
+  setField("ai-example-ja", result.example_ja);
+  setField("ai-example-zh", result.example_zh);
+}
+
+async function explain() {
+  const info = current;
+  const key = aiKey(info);
+  aiBtn.disabled = true;
+  aiBtn.textContent = "AI 解釋中…";
+  showAiMessage("");
+  let result = null;
+  let error = "";
+  try {
+    const res = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lemma: info.lemma, surface: info.surface, pos: info.pos, sentence: info.sentence }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      result = data;
+      aiCache.set(key, result);
+    } else {
+      error = data.error?.message ?? "AI 解釋失敗，請稍後再試。";
+    }
+  } catch {
+    error = "無法連線到伺服器。";
+  }
+  // 等待期間使用者可能已經點了別的字，結果已存入快取，這裡不更新畫面
+  if (!current || aiKey(current) !== key) return;
+  showAiResult(result);
+  showAiMessage(error);
 }
 
 function select(start, end) {
@@ -147,6 +214,7 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) analyze();
 });
 article.addEventListener("click", onArticleClick);
+aiBtn.addEventListener("click", explain);
 // Shift+點擊預設會反白文字，擋掉以免干擾選取
 article.addEventListener("mousedown", (e) => {
   if (e.shiftKey) e.preventDefault();

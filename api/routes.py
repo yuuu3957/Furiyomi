@@ -2,10 +2,11 @@
 
 from dataclasses import asdict
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 
 from core.furigana import contains_japanese, pos_class, ruby_segments
+from core.llm_client import LLMError, Provider, explain, get_provider
 from core.tokenizer import tokenize
 
 MAX_TEXT_LENGTH = 2000
@@ -20,6 +21,14 @@ class ApiError(Exception):
         self.status = status
         self.code = code
         self.message = message
+
+
+def llm_provider() -> Provider:
+    """測試用 app.dependency_overrides 換成假的 Provider。"""
+    try:
+        return get_provider()
+    except LLMError as e:
+        raise ApiError(503, e.code, e.message)
 
 
 class AnalyzeRequest(BaseModel):
@@ -45,3 +54,19 @@ def analyze(req: AnalyzeRequest):
             for t in tokenize(text)
         ]
     }
+
+
+class ExplainRequest(BaseModel):
+    lemma: str = Field(min_length=1, max_length=100)
+    surface: str = Field(min_length=1, max_length=100)
+    pos: str = Field(max_length=50)
+    sentence: str = Field(min_length=1, max_length=MAX_TEXT_LENGTH)
+
+
+@router.post("/explain")
+def explain_word(req: ExplainRequest, provider: Provider = Depends(llm_provider)):
+    try:
+        result = explain(provider, req.lemma, req.surface, req.pos, req.sentence)
+    except LLMError as e:
+        raise ApiError(502 if e.code == "llm_bad_response" else 503, e.code, e.message)
+    return asdict(result)

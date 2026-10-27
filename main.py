@@ -5,13 +5,16 @@
 
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from api.routes import ApiError, router
+load_dotenv()  # 讀取 .env 的 OPENAI_API_KEY 等設定；要在匯入路由前執行
+
+from api.routes import ApiError, router  # noqa: E402
 
 STATIC_DIR = Path(__file__).parent / "static"
 

@@ -152,6 +152,10 @@ rt {
 .detail dd { margin: 2px 0 0; font-size: 1.05rem; word-break: break-all; }
 .detail dd.big { font-size: 1.6rem; }
 
+.ai-area { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.ai-area .message { margin: 8px 0 0; }
+.ai-area dd.translation { color: var(--muted); font-size: 0.95rem; }
+
 @media (max-width: 760px) {
   .reader { grid-template-columns: 1fr; }
   .detail { position: static; }
