@@ -58,6 +58,15 @@ def ruby_segments(surface: str, reading: str) -> list[tuple[str, str | None]]:
     ]
 
 
+def bracket_text(tokens) -> str:
+    """把 Token 串成括號標音的純文字（給 MCP 用）：食べました → 食(た)べました。"""
+    return "".join(
+        f"{text}({rt})" if rt else text
+        for t in tokens
+        for text, rt in ruby_segments(t.surface, t.reading)
+    )
+
+
 def pos_class(pos: str) -> str:
     """詞性對應的配色分類；沒列到的詞性歸為 other。"""
     return _POS_CLASS.get(pos, "other")

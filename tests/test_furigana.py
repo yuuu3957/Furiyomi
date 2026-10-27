@@ -1,6 +1,7 @@
 import pytest
 
-from core.furigana import contains_japanese, katakana_to_hiragana, pos_class, ruby_segments
+from core.furigana import bracket_text, contains_japanese, katakana_to_hiragana, pos_class, ruby_segments
+from core.tokenizer import Token
 
 
 def test_katakana_to_hiragana():
@@ -40,6 +41,21 @@ def test_no_ruby_for_kana_punctuation_and_latin(surface):
 def test_ruby_falls_back_to_whole_token_when_reading_does_not_match():
     # ヶ 轉平假名後是 ゖ，對不上讀音的「か」
     assert ruby_segments("三ヶ月", "さんかげつ") == [("三ヶ月", "さんかげつ")]
+
+
+def _token(surface, reading):
+    return Token(surface, surface, reading, "", "", "")
+
+
+def test_bracket_text():
+    tokens = [_token("寿司", "すし"), _token("を", "を"), _token("食べ", "たべ"),
+              _token("まし", "まし"), _token("た", "た"), _token("。", "。")]
+    assert bracket_text(tokens) == "寿司(すし)を食(た)べました。"
+
+
+def test_bracket_text_number_and_empty():
+    assert bracket_text([_token("10日", "とおか")]) == "10日(とおか)"
+    assert bracket_text([]) == ""
 
 
 @pytest.mark.parametrize("text, expected", [
