@@ -11,6 +11,7 @@ const message = document.getElementById("message");
 const reader = document.getElementById("reader");
 const article = document.getElementById("article");
 const rubyToggle = document.getElementById("ruby-toggle");
+const colorToggle = document.getElementById("color-toggle");
 const detailEmpty = document.getElementById("detail-empty");
 const detailBody = document.getElementById("detail-body");
 
@@ -157,4 +158,7 @@ article.addEventListener("mousedown", (e) => {
 });
 rubyToggle.addEventListener("change", () => {
   article.classList.toggle("hide-ruby", !rubyToggle.checked);
+});
+colorToggle.addEventListener("change", () => {
+  reader.classList.toggle("no-pos-color", !colorToggle.checked);
 });

@@ -127,6 +127,9 @@ rt {
 .pos-auxiliary { color: var(--pos-auxiliary); }
 .pos-particle { color: var(--pos-particle); }
 .pos-affix, .pos-symbol, .pos-other { color: var(--pos-other); }
+/* 關閉詞性上色：文字回到預設色，圖例也收起來 */
+.no-pos-color .token { color: var(--text); }
+.no-pos-color .legend { display: none; }
 
 .token.clickable { cursor: pointer; border-radius: 3px; }
 .token.clickable:hover { background: #eef3f9; }
