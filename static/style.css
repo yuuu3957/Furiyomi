@@ -1,0 +1,82 @@
+:root {
+  --bg: #fafaf7;
+  --text: #222;
+  --muted: #777;
+  --border: #ddd;
+  --accent: #3b6ea5;
+  --error: #b3261e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans TC", "Noto Sans JP", "Microsoft JhengHei", "Yu Gothic", sans-serif;
+}
+
+header {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 { margin: 0; font-size: 1.4rem; }
+h1 .sub { color: var(--muted); font-size: 1rem; font-weight: normal; }
+
+main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.input-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+#char-count { color: var(--muted); font-size: 0.9rem; }
+#char-count.over { color: var(--error); font-weight: bold; }
+
+button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: wait; }
+
+.message { color: var(--error); }
+
+.article {
+  margin-top: 24px;
+  padding: 20px 24px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+  font-size: 1.3rem;
+  line-height: 2.4;           /* 留空間給上方的假名 */
+  white-space: pre-wrap;      /* 保留原文的換行與空白 */
+}
+
+rt {
+  font-size: 0.55em;
+  color: var(--muted);
+}

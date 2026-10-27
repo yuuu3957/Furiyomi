@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Furiyomi ふりよみ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Furiyomi <span class="sub">ふりよみ</span></h1>
+  </header>
+
+  <main>
+    <section class="input-area">
+      <textarea id="text-input" placeholder="在這裡貼上日文文章…" lang="ja"></textarea>
+      <div class="input-bar">
+        <span id="char-count">0 / 2000</span>
+        <button id="analyze-btn" type="button">標註假名</button>
+      </div>
+      <p id="message" class="message" hidden></p>
+    </section>
+
+    <section id="article" class="article" lang="ja" hidden></section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
