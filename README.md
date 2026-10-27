@@ -67,11 +67,16 @@ python -m venv .venv
 # 安裝套件
 pip install -r requirements.txt
 
-# 設定 OpenAI API 金鑰：複製 .env.example 成 .env，填入 OPENAI_API_KEY（.env 不會被 commit）
-# 沒有金鑰時其他功能照常運作，只有 AI 解釋會顯示提示
-
 # 啟動
 uvicorn main:app --reload
+```
+
+AI 解釋需要 OpenAI API 金鑰：在專案根目錄建立 `.env`（不會被 commit），內容如下。沒有金鑰時其他功能照常運作，只有 AI 解釋會顯示提示。
+
+```
+OPENAI_API_KEY=你的金鑰
+# 可選：預設 gpt-4.1-mini，展示時改用 gpt-5.4-mini
+OPENAI_MODEL=gpt-4.1-mini
 ```
 
 啟動後用瀏覽器開啟 <http://127.0.0.1:8000>。
