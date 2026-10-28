@@ -50,6 +50,26 @@ def test_analyze_invalid_body(body):
     assert res.json()["error"]["code"] == "invalid_request"
 
 
+def test_paginate_splits_long_text():
+    text = "今日は晴れです。\n" * 500  # 4,500 字
+    res = client.post("/api/paginate", json={"text": text})
+    assert res.status_code == 200
+    pages = res.json()["pages"]
+    assert len(pages) == 3
+    assert "".join(pages) == text
+
+
+@pytest.mark.parametrize("text, code", [
+    ("", "empty_text"),
+    ("あ" * 20001, "text_too_long"),
+    ("我今天吃了壽司。", "no_japanese"),
+], ids=["empty", "too_long", "no_japanese"])
+def test_paginate_rejects_bad_input(text, code):
+    res = client.post("/api/paginate", json={"text": text})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == code
+
+
 def test_unknown_api_path_uses_error_format():
     res = client.get("/api/nope")
     assert res.status_code == 404

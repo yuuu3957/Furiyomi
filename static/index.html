@@ -15,7 +15,7 @@
     <section class="input-area">
       <textarea id="text-input" placeholder="在這裡貼上日文文章…" lang="ja"></textarea>
       <div class="input-bar">
-        <span id="char-count">0 / 2000</span>
+        <span id="char-count">0 / 20,000</span>
         <button id="analyze-btn" type="button">標註假名</button>
       </div>
       <p id="message" class="message" hidden></p>
@@ -36,6 +36,11 @@
           </ul>
         </div>
         <div id="article" class="article" lang="ja"></div>
+        <nav id="pager" class="pager" hidden>
+          <button id="prev-btn" type="button">上一頁</button>
+          <span id="page-info"></span>
+          <button id="next-btn" type="button">下一頁</button>
+        </nav>
         <p class="hint">點一下單字看詳情；按住 Shift 再點同一句的另一個字，可選取整段。</p>
       </section>
 

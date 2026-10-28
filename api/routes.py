@@ -7,9 +7,11 @@ from pydantic import BaseModel, Field
 
 from core.furigana import contains_japanese, pos_class, ruby_segments
 from core.llm_client import LLMError, Provider, explain, get_provider
+from core.paging import PAGE_LIMIT, split_pages
 from core.tokenizer import tokenize
 
-MAX_TEXT_LENGTH = 2000
+MAX_TEXT_LENGTH = PAGE_LIMIT  # /analyze 一次只處理一頁
+MAX_DOCUMENT_LENGTH = 20000
 
 router = APIRouter(prefix="/api")
 
@@ -31,19 +33,28 @@ def llm_provider() -> Provider:
         raise ApiError(503, e.code, e.message)
 
 
-class AnalyzeRequest(BaseModel):
+class TextRequest(BaseModel):
     text: str
 
 
-@router.post("/analyze")
-def analyze(req: AnalyzeRequest):
-    text = req.text
+def check_text(text: str, max_length: int) -> None:
     if not text.strip():
         raise ApiError(400, "empty_text", "請輸入文章。")
-    if len(text) > MAX_TEXT_LENGTH:
-        raise ApiError(400, "text_too_long", f"文章超過 {MAX_TEXT_LENGTH} 字（目前 {len(text)} 字）。")
+    if len(text) > max_length:
+        raise ApiError(400, "text_too_long", f"文章超過 {max_length:,} 字（目前 {len(text):,} 字）。")
     if not contains_japanese(text):
         raise ApiError(400, "no_japanese", "沒有偵測到日文（平假名或片假名）。")
+
+
+@router.post("/paginate")
+def paginate(req: TextRequest):
+    check_text(req.text, MAX_DOCUMENT_LENGTH)
+    return {"pages": split_pages(req.text)}
+
+
+@router.post("/analyze")
+def analyze(req: TextRequest):
+    check_text(req.text, MAX_TEXT_LENGTH)
     return {
         "tokens": [
             {
@@ -51,7 +62,7 @@ def analyze(req: AnalyzeRequest):
                 "pos_class": pos_class(t.pos),
                 "ruby": [{"text": s, "rt": rt} for s, rt in ruby_segments(t.surface, t.reading)],
             }
-            for t in tokenize(text)
+            for t in tokenize(req.text)
         ]
     }
 

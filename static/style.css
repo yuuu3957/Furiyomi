@@ -135,6 +135,18 @@ rt {
 .token.clickable:hover { background: #eef3f9; }
 .token.selected, .token.selected:hover { background: var(--selected); }
 
+.pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+.pager[hidden] { display: none; }
+#page-info { color: var(--muted); }
+.pager button:disabled { cursor: default; }
+.article .loading { margin: 0; color: var(--muted); }
+
 .hint { color: var(--muted); font-size: 0.85rem; }
 
 .detail {
