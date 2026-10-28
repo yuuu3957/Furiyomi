@@ -3,9 +3,13 @@
 工具只是 core 函式的薄包裝，不放邏輯。啟動：python mcp_server.py（stdio）。
 """
 
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
 from core.furigana import bracket_text
+from core.paging import split_pages
+from core.pdf_reader import extract_text
 from core.tokenizer import tokenize
 
 mcp = FastMCP("furiyomi")
@@ -27,6 +31,16 @@ def analyze_japanese(text: str) -> list[dict]:
 def add_furigana(text: str) -> str:
     """在日文漢字後面用括號標上平假名讀音，例如「寿司を食べました」→「寿司(すし)を食(た)べました」。"""
     return bracket_text(tokenize(text))
+
+
+
+@mcp.tool()
+def extract_pdf_text(path: str) -> list[str]:
+    """抽出文字型橫書 PDF 的文字，把每行接回段落，再切成每段 2,000 字內的區塊（盡量在段落結尾切）。
+
+    掃描檔等沒有文字的 PDF 會回傳錯誤。
+    """
+    return split_pages(extract_text(Path(path).read_bytes()))
 
 
 if __name__ == "__main__":
