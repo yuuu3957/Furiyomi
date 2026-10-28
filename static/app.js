@@ -35,7 +35,7 @@ let tokenEls = [];
 let sentenceIds = [];
 let anchor = null;  // Shift 選取的起點（Token 索引）
 let current = null; // 目前詳情面板顯示的選取內容
-// AI 解釋的快取（P3 做了 SQLite 後改由後端快取）；只存成功的結果
+// 這次瀏覽看過的 AI 解釋，重點同一個字時直接顯示；跨次保存的快取在後端 SQLite。只存成功的結果
 const aiCache = new Map();
 
 function showMessage(text) {

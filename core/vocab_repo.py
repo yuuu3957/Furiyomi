@@ -1,14 +1,19 @@
-"""單字庫：SQLite 存取（收藏、搜尋、篩選、刪除）。
+"""單字庫：SQLite 存取（收藏、搜尋、篩選、刪除），以及 AI 解釋的快取與查詢紀錄。
 
 資料庫檔預設放在 data/furiyomi.db，可用環境變數 FURIYOMI_DB 改路徑；檔案不存在時自動建立。
 函式都接收 connection，測試用 ":memory:"，不碰真正的資料庫檔。
 """
 
+import hashlib
+import json
 import os
 import sqlite3
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+
+from core.llm_client import AIExplanation, Provider, explain, parse_explanation
 
 DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "furiyomi.db"
 
@@ -140,3 +145,50 @@ def delete_vocab(conn: sqlite3.Connection, vocab_id: int) -> bool:
     with conn:
         cur = conn.execute("DELETE FROM vocab WHERE id = ?", (vocab_id,))
     return cur.rowcount > 0
+
+
+# --- AI 解釋快取與查詢紀錄 ---
+
+def sentence_hash(surface: str, sentence: str) -> str:
+    """快取鍵的一部分：同一句裡選取範圍不同（食べ／食べました）解釋也不同，所以表記一起算進去。"""
+    return hashlib.sha256(f"{surface}\n{sentence}".encode()).hexdigest()
+
+
+def get_cached_explanation(conn: sqlite3.Connection, lemma: str, surface: str, sentence: str) -> AIExplanation | None:
+    row = conn.execute(
+        "SELECT response_json FROM lookup_cache WHERE lemma = ? AND sentence_hash = ?",
+        (lemma, sentence_hash(surface, sentence)),
+    ).fetchone()
+    return parse_explanation(row["response_json"]) if row else None
+
+
+def save_cached_explanation(
+    conn: sqlite3.Connection, lemma: str, surface: str, sentence: str, result: AIExplanation,
+    now: datetime | None = None,
+) -> None:
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO lookup_cache (lemma, sentence_hash, response_json, created_at) VALUES (?, ?, ?, ?)",
+            (lemma, sentence_hash(surface, sentence), json.dumps(asdict(result), ensure_ascii=False), _now(now)),
+        )
+
+
+def log_lookup(conn: sqlite3.Connection, lemma: str, pos: str, now: datetime | None = None) -> None:
+    with conn:
+        conn.execute("INSERT INTO lookup_log (lemma, pos, looked_up_at) VALUES (?, ?, ?)", (lemma, pos, _now(now)))
+
+
+def explain_with_cache(
+    conn: sqlite3.Connection, get_provider: Callable[[], Provider],
+    lemma: str, surface: str, pos: str, sentence: str,
+) -> AIExplanation:
+    """先查快取，沒有才呼叫 LLM（失敗時丟 LLMError、不寫快取）；成功的查詢都記一筆，命中快取也算。
+
+    get_provider 等到真的要呼叫 LLM 才執行，所以沒設金鑰時快取裡有的仍查得到。
+    """
+    result = get_cached_explanation(conn, lemma, surface, sentence)
+    if result is None:
+        result = explain(get_provider(), lemma, surface, pos, sentence)
+        save_cached_explanation(conn, lemma, surface, sentence, result)
+    log_lookup(conn, lemma, pos)
+    return result

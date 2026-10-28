@@ -3,12 +3,23 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from api.routes import llm_provider
+from api.routes import get_db, llm_provider
 from core.llm_client import LLMError, get_provider
+from core.vocab_repo import connect
 from main import app
 from tests.test_pdf_reader import make_pdf
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def db():
+    """每個測試用新的記憶體資料庫，不碰 data/furiyomi.db。"""
+    conn = connect(":memory:")
+    app.dependency_overrides[get_db] = lambda: conn
+    yield conn
+    app.dependency_overrides.pop(get_db, None)
+    conn.close()
 
 
 def analyze(text):
@@ -93,8 +104,10 @@ class FakeProvider:
     def __init__(self, response=None, error=None):
         self.response = response
         self.error = error
+        self.calls = 0
 
     def complete(self, system, user):
+        self.calls += 1
         if self.error:
             raise self.error
         return self.response
@@ -103,9 +116,9 @@ class FakeProvider:
 @pytest.fixture
 def use_provider():
     def install(provider):
-        app.dependency_overrides[llm_provider] = lambda: provider
+        app.dependency_overrides[llm_provider] = lambda: lambda: provider
     yield install
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(llm_provider, None)
 
 
 def test_explain_ok(use_provider):
@@ -136,6 +149,46 @@ def test_explain_without_api_key(monkeypatch):
     get_provider.cache_clear()
     assert res.status_code == 503
     assert res.json()["error"]["code"] == "llm_not_configured"
+
+
+def lookup_count(db):
+    return db.execute("SELECT COUNT(*) FROM lookup_log").fetchone()[0]
+
+
+def test_explain_second_time_uses_cache(use_provider, db):
+    provider = FakeProvider(json.dumps(EXPLANATION))
+    use_provider(provider)
+    client.post("/api/explain", json=EXPLAIN_BODY)
+    res = client.post("/api/explain", json=EXPLAIN_BODY)
+    assert res.json() == EXPLANATION
+    assert provider.calls == 1
+    assert lookup_count(db) == 2  # 命中快取也記錄
+
+
+def test_explain_cache_keyed_by_selection(use_provider):
+    provider = FakeProvider(json.dumps(EXPLANATION))
+    use_provider(provider)
+    client.post("/api/explain", json=EXPLAIN_BODY)
+    client.post("/api/explain", json={**EXPLAIN_BODY, "surface": "食べました"})
+    assert provider.calls == 2
+
+
+def test_explain_cached_works_without_api_key(use_provider, monkeypatch):
+    use_provider(FakeProvider(json.dumps(EXPLANATION)))
+    client.post("/api/explain", json=EXPLAIN_BODY)
+    app.dependency_overrides.pop(llm_provider)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    get_provider.cache_clear()
+    res = client.post("/api/explain", json=EXPLAIN_BODY)
+    get_provider.cache_clear()
+    assert res.json() == EXPLANATION
+
+
+def test_explain_failure_not_cached_or_logged(use_provider, db):
+    use_provider(FakeProvider("不是 JSON"))
+    client.post("/api/explain", json=EXPLAIN_BODY)
+    assert db.execute("SELECT COUNT(*) FROM lookup_cache").fetchone()[0] == 0
+    assert lookup_count(db) == 0
 
 
 @pytest.mark.parametrize("override", [{"lemma": ""}, {"sentence": ""}, {"surface": "あ" * 101}])

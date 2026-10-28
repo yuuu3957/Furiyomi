@@ -1,9 +1,13 @@
+import json
+from dataclasses import asdict
 from datetime import datetime
 
 import pytest
 
+from core.llm_client import AIExplanation, LLMError
 from core.vocab_repo import (
-    DuplicateVocabError, add_vocab, connect, db_path, delete_vocab, get_vocab, search_vocab,
+    DuplicateVocabError, add_vocab, connect, db_path, delete_vocab, explain_with_cache, get_cached_explanation,
+    get_vocab, save_cached_explanation, search_vocab,
 )
 
 
@@ -95,3 +99,52 @@ def test_can_add_again_after_delete(conn):
     entry = add_vocab(conn, "猫", "ねこ", "名詞")
     delete_vocab(conn, entry.id)
     assert add_vocab(conn, "猫", "ねこ", "名詞").lemma == "猫"
+
+
+# --- AI 解釋快取與查詢紀錄 ---
+
+EXPLANATION = AIExplanation("吃", "連用形。", "パンを食べます。", "吃麵包。")
+
+
+class FakeProvider:
+    def __init__(self, response):
+        self.response = response
+        self.calls = 0
+
+    def complete(self, system, user):
+        self.calls += 1
+        return self.response
+
+
+def test_cache_roundtrip(conn):
+    assert get_cached_explanation(conn, "食べる", "食べ", "寿司を食べた。") is None
+    save_cached_explanation(conn, "食べる", "食べ", "寿司を食べた。", EXPLANATION)
+    assert get_cached_explanation(conn, "食べる", "食べ", "寿司を食べた。") == EXPLANATION
+    assert get_cached_explanation(conn, "食べる", "食べた", "寿司を食べた。") is None
+    assert get_cached_explanation(conn, "食べる", "食べ", "パンを食べた。") is None
+
+
+def test_explain_with_cache_calls_llm_once(conn):
+    provider = FakeProvider(json.dumps(asdict(EXPLANATION)))
+    for _ in range(2):
+        assert explain_with_cache(conn, lambda: provider, "食べる", "食べ", "動詞", "寿司を食べた。") == EXPLANATION
+    assert provider.calls == 1
+    rows = conn.execute("SELECT lemma, pos FROM lookup_log").fetchall()
+    assert [tuple(r) for r in rows] == [("食べる", "動詞")] * 2
+
+
+def test_explain_with_cache_hit_does_not_need_provider(conn):
+    save_cached_explanation(conn, "食べる", "食べ", "寿司を食べた。", EXPLANATION)
+
+    def no_provider():
+        raise LLMError("llm_not_configured", "沒有金鑰")
+
+    assert explain_with_cache(conn, no_provider, "食べる", "食べ", "動詞", "寿司を食べた。") == EXPLANATION
+
+
+def test_explain_with_cache_failure_not_saved(conn):
+    provider = FakeProvider("壞掉")
+    with pytest.raises(LLMError):
+        explain_with_cache(conn, lambda: provider, "食べる", "食べ", "動詞", "寿司を食べた。")
+    assert conn.execute("SELECT COUNT(*) FROM lookup_cache").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM lookup_log").fetchone()[0] == 0

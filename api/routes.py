@@ -1,15 +1,19 @@
 """API 路由：只做驗證與轉換，邏輯都在 core。"""
 
+import sqlite3
+from collections.abc import Callable
 from dataclasses import asdict
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, UploadFile
 from pydantic import BaseModel, Field
 
 from core.furigana import contains_japanese, pos_class, ruby_segments
-from core.llm_client import LLMError, Provider, explain, get_provider
+from core.llm_client import LLMError, Provider, get_provider
 from core.paging import PAGE_LIMIT, split_pages
 from core.pdf_reader import PdfError, extract_text
 from core.tokenizer import tokenize
+from core.vocab_repo import connect, explain_with_cache
 
 MAX_TEXT_LENGTH = PAGE_LIMIT  # /analyze 一次只處理一頁
 MAX_DOCUMENT_LENGTH = 20000
@@ -27,12 +31,15 @@ class ApiError(Exception):
         self.message = message
 
 
-def llm_provider() -> Provider:
-    """測試用 app.dependency_overrides 換成假的 Provider。"""
-    try:
-        return get_provider()
-    except LLMError as e:
-        raise ApiError(503, e.code, e.message)
+def llm_provider() -> Callable[[], Provider]:
+    """回傳取得 Provider 的函式，命中快取時就不必建立；測試用 app.dependency_overrides 換成假的。"""
+    return get_provider
+
+
+@lru_cache(maxsize=1)
+def get_db() -> sqlite3.Connection:
+    """整個程式共用一個連線；測試用 app.dependency_overrides 換成記憶體資料庫。"""
+    return connect()
 
 
 class TextRequest(BaseModel):
@@ -90,9 +97,13 @@ class ExplainRequest(BaseModel):
 
 
 @router.post("/explain")
-def explain_word(req: ExplainRequest, provider: Provider = Depends(llm_provider)):
+def explain_word(
+    req: ExplainRequest,
+    provider: Callable[[], Provider] = Depends(llm_provider),
+    db: sqlite3.Connection = Depends(get_db),
+):
     try:
-        result = explain(provider, req.lemma, req.surface, req.pos, req.sentence)
+        result = explain_with_cache(db, provider, req.lemma, req.surface, req.pos, req.sentence)
     except LLMError as e:
         raise ApiError(502 if e.code == "llm_bad_response" else 503, e.code, e.message)
     return asdict(result)
