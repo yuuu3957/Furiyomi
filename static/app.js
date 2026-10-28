@@ -36,6 +36,11 @@ const vocabCount = document.getElementById("vocab-count");
 const vocabMessage = document.getElementById("vocab-message");
 const vocabBody = document.getElementById("vocab-body");
 const vocabEmpty = document.getElementById("vocab-empty");
+const statsMessage = document.getElementById("stats-message");
+const posChart = document.getElementById("pos-chart");
+const posEmpty = document.getElementById("pos-empty");
+const dailyChart = document.getElementById("daily-chart");
+const dailyTable = document.getElementById("daily-table");
 
 let pages = [];      // 切好的頁面文字
 let pageTokens = []; // 已分析過的頁面，切回來不必重送
@@ -544,6 +549,134 @@ function switchView(name) {
     document.getElementById(`view-${tab.dataset.view}`).hidden = !active;
   }
   if (name === "vocab") loadVocab();
+  if (name === "stats") loadStats();
+}
+
+// --- 統計頁 ---
+
+const WEEKDAYS = "日一二三四五六";
+
+function el(tag, className = "", text = "") {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== "") node.textContent = text;
+  return node;
+}
+
+// 2026-10-28 → { short: "10/28", long: "10/28（三）" }；用 UTC 解析，避免時區讓日期差一天
+function formatDay(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const short = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return { short, long: `${short}（${WEEKDAYS[d.getUTCDay()]}）` };
+}
+
+// y 軸刻度：取 1、2、5 × 10ⁿ 的整齊間距，大約 4 格
+function niceTicks(max) {
+  if (max <= 0) return [0, 1, 2, 3, 4];
+  const raw = max / 4;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= raw && s >= 1) ?? 1;
+  const ticks = [];
+  for (let v = 0; v < max + step; v += step) ticks.push(v);
+  return ticks;
+}
+
+// 橫條圖：單一系列，數值標在條的末端
+function renderPosChart(items) {
+  posEmpty.hidden = items.length > 0;
+  const max = Math.max(1, ...items.map((i) => i.count));
+  posChart.replaceChildren(...items.map((item) => {
+    const row = el("div", "hbar-row");
+    const label = el("span", "hbar-label", item.pos);
+    label.lang = "ja";
+    const track = el("div", "hbar-track");
+    const bar = el("div", "hbar-bar");
+    bar.style.width = `${(item.count / max) * 100}%`;
+    track.append(bar, el("span", "hbar-value", item.count));
+    row.append(label, track);
+    return row;
+  }));
+}
+
+// 直條圖：每天一欄，整欄都是滑鼠／鍵盤的觸發範圍，提示框顯示日期與次數
+function renderDailyChart(days) {
+  const ticks = niceTicks(Math.max(...days.map((d) => d.count)));
+  const top = ticks[ticks.length - 1];
+
+  const grid = el("div", "col-grid");
+  for (const t of ticks) {
+    const line = el("div", "col-gridline");
+    line.style.bottom = `${(t / top) * 100}%`;
+    line.append(el("span", "col-tick", t));
+    grid.append(line);
+  }
+
+  const tooltip = el("div", "chart-tooltip");
+  tooltip.hidden = true;
+  const plot = el("div", "col-plot");
+  days.forEach((day, i) => {
+    const { short, long } = formatDay(day.date);
+    const slot = el("div", "col-slot");
+    slot.tabIndex = 0;
+    slot.setAttribute("aria-label", `${long}：${day.count} 次`);
+    const bar = el("div", "col-bar");
+    bar.style.height = `${(day.count / top) * 100}%`;
+    slot.append(bar);
+    const show = () => {
+      tooltip.replaceChildren(el("div", "", long), el("strong", "", `${day.count} 次`));
+      tooltip.hidden = false;
+      tooltip.style.left = `${((i + 0.5) / days.length) * 100}%`;
+      tooltip.classList.toggle("align-start", i < 2);
+      tooltip.classList.toggle("align-end", i >= days.length - 2);
+      slot.classList.add("active");
+    };
+    const hide = () => {
+      tooltip.hidden = true;
+      slot.classList.remove("active");
+    };
+    slot.addEventListener("mouseenter", show);
+    slot.addEventListener("focus", show);
+    slot.addEventListener("mouseleave", hide);
+    slot.addEventListener("blur", hide);
+    plot.append(slot);
+  });
+
+  // 日期標籤隔一天顯示一次，最後一天（今天）一定顯示
+  const axis = el("div", "col-axis");
+  days.forEach((day, i) => {
+    const show = (days.length - 1 - i) % 2 === 0;
+    axis.append(el("span", "", show ? (i === days.length - 1 ? "今天" : formatDay(day.date).short) : ""));
+  });
+
+  const area = el("div", "col-area");
+  area.append(grid, plot, tooltip);
+  dailyChart.replaceChildren(area, axis);
+
+  dailyTable.replaceChildren(...days.map((day) => {
+    const tr = document.createElement("tr");
+    tr.append(el("td", "", formatDay(day.date).long), el("td", "", day.count));
+    return tr;
+  }));
+}
+
+async function loadStats() {
+  let data = null;
+  let error = "";
+  try {
+    const res = await fetch("/api/stats");
+    data = await res.json();
+    if (!res.ok) error = data.error?.message ?? "讀取統計失敗，請稍後再試。";
+  } catch {
+    error = "無法連線到伺服器。";
+  }
+  statsMessage.textContent = error;
+  statsMessage.hidden = !error;
+  if (error) return;
+  setField("stat-vocab-total", data.vocab_total.toLocaleString());
+  setField("stat-vocab-week", data.vocab_this_week.toLocaleString());
+  setField("stat-lookups", data.lookups_total.toLocaleString());
+  renderPosChart(data.pos_distribution);
+  renderDailyChart(data.daily_lookups);
 }
 
 async function analyze() {

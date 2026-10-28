@@ -12,6 +12,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" role="tab" data-view="read" aria-selected="true">閱讀</button>
       <button type="button" role="tab" data-view="vocab" aria-selected="false">單字庫</button>
+      <button type="button" role="tab" data-view="stats" aria-selected="false">統計</button>
     </nav>
   </header>
 
@@ -107,6 +108,46 @@
         </table>
       </div>
       <p id="vocab-empty" class="hint" hidden></p>
+    </div>
+
+    <div id="view-stats" class="view" hidden>
+      <p id="stats-message" class="message" hidden></p>
+      <div class="stat-tiles">
+        <div class="stat-tile">
+          <div class="stat-label">單字庫總數</div>
+          <div id="stat-vocab-total" class="stat-value">—</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">本週新增</div>
+          <div id="stat-vocab-week" class="stat-value">—</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">累計查詢</div>
+          <div id="stat-lookups" class="stat-value">—</div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <section class="chart-card">
+          <h2>詞性分布</h2>
+          <p class="chart-sub">單字庫中各詞性的單字數</p>
+          <div id="pos-chart" class="hbar-chart"></div>
+          <p id="pos-empty" class="hint" hidden>單字庫還沒有單字。</p>
+        </section>
+
+        <section class="chart-card">
+          <h2>近 14 天查詢數</h2>
+          <p class="chart-sub">每天按「AI 解釋」的次數（命中快取也算）</p>
+          <div id="daily-chart" class="col-chart"></div>
+          <details class="table-view">
+            <summary>以表格檢視</summary>
+            <table>
+              <thead><tr><th>日期</th><th>查詢數</th></tr></thead>
+              <tbody id="daily-table"></tbody>
+            </table>
+          </details>
+        </section>
+      </div>
     </div>
   </main>
 

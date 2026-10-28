@@ -15,6 +15,7 @@ from core import vocab_repo
 from core.furigana import bracket_text
 from core.paging import split_pages
 from core.pdf_reader import extract_text
+from core.stats import get_stats as compute_stats
 from core.tokenizer import tokenize
 
 mcp = FastMCP("furiyomi")
@@ -91,6 +92,12 @@ def delete_vocab(vocab_id: int) -> bool:
 def delete_vocab_example(example_id: int) -> bool:
     """刪除單字的一個例句；刪掉最後一個例句時單字也一起刪除。找不到時回傳 false。"""
     return vocab_repo.delete_example(_db(), example_id) is not None
+
+
+@mcp.tool()
+def get_stats() -> dict:
+    """單字庫與 AI 解釋查詢的統計：單字總數、本週新增、累計查詢、詞性分布、近 14 天每天的查詢數。"""
+    return asdict(compute_stats(_db()))
 
 
 if __name__ == "__main__":

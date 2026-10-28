@@ -12,6 +12,7 @@ from core.furigana import contains_japanese, pos_class, ruby_segments
 from core.llm_client import LLMError, Provider, get_provider
 from core.paging import PAGE_LIMIT, split_pages
 from core.pdf_reader import PdfError, extract_text
+from core.stats import get_stats
 from core.tokenizer import tokenize
 from core.vocab_repo import (
     DuplicateVocabError, add_vocab, connect, delete_example, delete_vocab, explain_with_cache, search_vocab,
@@ -151,3 +152,8 @@ def remove_example(example_id: int, db: sqlite3.Connection = Depends(get_db)):
         raise ApiError(404, "example_not_found", "找不到這個例句，可能已被刪除。")
     # 刪掉最後一個例句時詞也一起刪除，前端據此更新收藏狀態
     return {"deleted": example_id, "deleted_vocab": deleted_vocab or None}
+
+
+@router.get("/stats")
+def stats(db: sqlite3.Connection = Depends(get_db)):
+    return asdict(get_stats(db))

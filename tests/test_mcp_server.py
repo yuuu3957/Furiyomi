@@ -6,8 +6,8 @@ import mcp_server
 from core.pdf_reader import PdfError
 from core.vocab_repo import DuplicateVocabError, connect
 from mcp_server import (
-    add_furigana, add_to_vocab, analyze_japanese, delete_vocab, delete_vocab_example, extract_pdf_text, mcp,
-    search_vocab,
+    add_furigana, add_to_vocab, analyze_japanese, delete_vocab, delete_vocab_example, extract_pdf_text, get_stats,
+    mcp, search_vocab,
 )
 from tests.test_pdf_reader import make_pdf
 
@@ -76,9 +76,16 @@ def test_delete_vocab_and_example(db):
     assert search_vocab() == []
 
 
+def test_get_stats(db):
+    add_to_vocab("食べる", "動詞", context_sentence="寿司を食べた。")
+    stats = get_stats()
+    assert stats["vocab_total"] == 1
+    assert stats["pos_distribution"] == [{"pos": "動詞", "count": 1}]
+
+
 def test_tools_registered():
     tools = asyncio.run(mcp.list_tools())
     assert {t.name for t in tools} == {
         "analyze_japanese", "add_furigana", "extract_pdf_text",
-        "search_vocab", "add_to_vocab", "delete_vocab", "delete_vocab_example",
+        "search_vocab", "add_to_vocab", "delete_vocab", "delete_vocab_example", "get_stats",
     }

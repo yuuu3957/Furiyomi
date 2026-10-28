@@ -181,9 +181,10 @@ rt {
 .ai-area dd.translation { color: var(--muted); font-size: 0.95rem; }
 
 /* --- 分頁切換 --- */
-header { display: flex; align-items: center; gap: 32px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 32px; }
+h1 { white-space: nowrap; }
 .tabs { display: flex; gap: 4px; }
-.tabs button { padding: 6px 16px; background: none; color: var(--muted); }
+.tabs button { padding: 6px 16px; background: none; color: var(--muted); white-space: nowrap; }
 .tabs button[aria-selected="true"] { background: #eef3f9; color: var(--accent); font-weight: bold; }
 .view[hidden] { display: none; }
 
@@ -270,7 +271,94 @@ header { display: flex; align-items: center; gap: 32px; }
 }
 .delete-btn:hover { border-color: var(--error); }
 
+/* --- 統計頁 --- */
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.stat-tile, .chart-card {
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.stat-label { color: var(--muted); font-size: 0.85rem; }
+.stat-value { margin-top: 4px; font-size: 2rem; font-weight: 600; }
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+.chart-card h2 { margin: 0; font-size: 1rem; }
+.chart-sub { margin: 2px 0 16px; color: var(--muted); font-size: 0.8rem; }
+
+/* 橫條圖：條不超過 20px 粗，末端 4px 圓角、基線端平直 */
+.hbar-chart { display: grid; gap: 10px; }
+.hbar-row { display: grid; grid-template-columns: 5em minmax(0, 1fr); align-items: center; gap: 8px; }
+.hbar-label { color: var(--muted); font-size: 0.85rem; text-align: right; }
+.hbar-track { display: flex; align-items: center; gap: 6px; }
+.hbar-bar { height: 18px; min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
+.hbar-value { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
+/* 直條圖 */
+.col-area { position: relative; height: 180px; margin-left: 28px; }
+.col-grid, .col-plot { position: absolute; inset: 0; }
+.col-gridline { position: absolute; left: 0; right: 0; border-top: 1px solid #eee; }
+.col-gridline:first-child { border-top-color: #ccc; } /* 基線 */
+.col-tick {
+  position: absolute;
+  right: calc(100% + 6px);
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.col-plot { display: flex; }
+.col-slot {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 4px;
+  outline: none;
+}
+.col-slot.active { background: #eef3f9; }
+.col-slot:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.col-bar { width: min(20px, 70%); background: var(--accent); border-radius: 4px 4px 0 0; }
+.col-axis { display: flex; margin: 6px 0 0 28px; }
+.col-axis span { flex: 1; text-align: center; color: var(--muted); font-size: 0.7rem; white-space: nowrap; }
+.chart-tooltip {
+  position: absolute;
+  top: -8px;
+  transform: translate(-50%, -100%);
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.chart-tooltip[hidden] { display: none; }
+/* 靠兩端的欄位，提示框往內對齊，不超出卡片 */
+.chart-tooltip.align-start { transform: translate(-24px, -100%); }
+.chart-tooltip.align-end { transform: translate(calc(-100% + 24px), -100%); }
+.table-view { margin-top: 12px; font-size: 0.85rem; }
+.table-view summary { color: var(--accent); cursor: pointer; }
+.table-view table { margin-top: 8px; border-collapse: collapse; }
+.table-view td, .table-view th { padding: 2px 16px 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
+.table-view th { color: var(--muted); font-weight: normal; }
+
 @media (max-width: 760px) {
+  .stat-tiles { gap: 8px; }
+  .stat-tile { padding: 12px; }
+  .stat-value { font-size: 1.5rem; }
+  .chart-grid { grid-template-columns: 1fr; }
   .reader { grid-template-columns: 1fr; }
   .detail { position: static; }
 }

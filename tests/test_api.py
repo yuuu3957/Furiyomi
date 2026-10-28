@@ -332,3 +332,15 @@ def test_explain_fills_collected_example(use_provider):
     [entry] = client.get("/api/vocab").json()["items"]
     ex = entry["examples"][0]
     assert {k: ex[k] for k in EXPLANATION} == EXPLANATION
+
+
+# --- /api/stats ---
+
+def test_stats(use_provider):
+    use_provider(FakeProvider(json.dumps(EXPLANATION)))
+    add()
+    client.post("/api/explain", json=EXPLAIN_BODY)
+    stats = client.get("/api/stats").json()
+    assert (stats["vocab_total"], stats["vocab_this_week"], stats["lookups_total"]) == (1, 1, 1)
+    assert stats["pos_distribution"] == [{"pos": "動詞", "count": 1}]
+    assert len(stats["daily_lookups"]) == 14 and stats["daily_lookups"][-1]["count"] == 1
