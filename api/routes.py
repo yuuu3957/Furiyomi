@@ -12,7 +12,7 @@ from core.furigana import contains_japanese, pos_class, ruby_segments
 from core.llm_client import LLMError, Provider, get_provider
 from core.paging import PAGE_LIMIT, split_pages
 from core.pdf_reader import PdfError, extract_text
-from core.tokenizer import tokenize
+from core.tokenizer import lemma_reading, tokenize
 from core.vocab_repo import (
     DuplicateVocabError, add_vocab, connect, delete_vocab, explain_with_cache, search_vocab,
 )
@@ -113,7 +113,7 @@ def explain_word(
 
 class VocabRequest(BaseModel):
     lemma: str = Field(min_length=1, max_length=100)
-    reading: str = Field(max_length=100)
+    reading: str = Field("", max_length=100)  # 空白時由原形推算
     pos: str = Field(max_length=50)
     meaning_zh: str = Field("", max_length=200)
     usage_note: str = Field("", max_length=2000)
@@ -128,7 +128,7 @@ def list_vocab(keyword: str | None = None, pos: str | None = None, db: sqlite3.C
 @router.post("/vocab", status_code=201)
 def create_vocab(req: VocabRequest, db: sqlite3.Connection = Depends(get_db)):
     try:
-        entry = add_vocab(db, **req.model_dump())
+        entry = add_vocab(db, **{**req.model_dump(), "reading": req.reading or lemma_reading(req.lemma)})
     except DuplicateVocabError as e:
         raise ApiError(409, "vocab_exists", str(e))
     return asdict(entry)

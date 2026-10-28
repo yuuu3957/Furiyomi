@@ -144,3 +144,9 @@ def tokenize(text: str) -> list[Token]:
             ))
             i += 1
     return tokens
+
+
+def lemma_reading(lemma: str) -> str:
+    """原形的讀音（收藏用，例如「食べる」→「たべる」）：把原形再斷詞一次、讀音接起來。
+    少了上下文，同形異音的字可能讀錯（已知限制）；表記等於原形時應直接用原本的讀音。"""
+    return "".join(t.reading for t in tokenize(lemma))

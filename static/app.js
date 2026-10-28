@@ -26,6 +26,16 @@ const pager = document.getElementById("pager");
 const prevBtn = document.getElementById("prev-btn");
 const nextBtn = document.getElementById("next-btn");
 const pageInfo = document.getElementById("page-info");
+const collectArea = document.getElementById("collect-area");
+const collectBtn = document.getElementById("collect-btn");
+const collectMessage = document.getElementById("collect-message");
+const tabs = document.querySelectorAll(".tabs [data-view]");
+const vocabSearch = document.getElementById("vocab-search");
+const vocabPos = document.getElementById("vocab-pos");
+const vocabCount = document.getElementById("vocab-count");
+const vocabMessage = document.getElementById("vocab-message");
+const vocabBody = document.getElementById("vocab-body");
+const vocabEmpty = document.getElementById("vocab-empty");
 
 let pages = [];      // 切好的頁面文字
 let pageTokens = []; // 已分析過的頁面，切回來不必重送
@@ -35,8 +45,11 @@ let tokenEls = [];
 let sentenceIds = [];
 let anchor = null;  // Shift 選取的起點（Token 索引）
 let current = null; // 目前詳情面板顯示的選取內容
-// 這次瀏覽看過的 AI 解釋，重點同一個字時直接顯示；跨次保存的快取在後端 SQLite。只存成功的結果
+// 這次瀏覽看過的 AI 解釋，再點同一個字時直接顯示；跨次保存的快取在後端 SQLite。只存成功的結果
 const aiCache = new Map();
+const collected = new Map(); // 已收藏的原形 → id，決定「加入單字庫」按鈕的狀態
+let vocabRequest = 0;        // 搜尋時只顯示最後一次請求的結果
+let searchTimer = null;
 
 function showMessage(text) {
   message.textContent = text;
@@ -156,6 +169,8 @@ function describeSelection(start, end) {
     pos: first.pos,
     posClass: first.pos_class,
     sentence: first.sentence,
+    // 收藏用的原形讀音：第一個 Token 本身就是原形時直接用；否則留空，由後端推算
+    lemmaReading: first.surface === first.lemma ? first.reading : "",
   };
 }
 
@@ -171,7 +186,7 @@ function showDetail(info) {
   current = info;
   detailEmpty.hidden = !!info;
   detailBody.hidden = !info;
-  aiArea.hidden = !info || NO_AI_POS.has(info.posClass);
+  aiArea.hidden = collectArea.hidden = !info || NO_AI_POS.has(info.posClass);
   if (!info) return;
   setField("d-surface", info.surface);
   setField("d-reading", info.reading);
@@ -179,6 +194,8 @@ function showDetail(info) {
   setField("d-pos", info.pos);
   showAiMessage("");
   showAiResult(aiCache.get(aiKey(info)) ?? null);
+  showCollectMessage("");
+  updateCollectBtn();
 }
 
 function showAiMessage(text) {
@@ -229,6 +246,67 @@ async function explain() {
   showAiMessage(error);
 }
 
+function showCollectMessage(text) {
+  collectMessage.textContent = text;
+  collectMessage.hidden = !text;
+}
+
+function updateCollectBtn() {
+  if (!current) return;
+  const done = collected.has(current.lemma);
+  collectBtn.disabled = done;
+  collectBtn.textContent = done ? "已在單字庫" : "加入單字庫";
+}
+
+async function loadCollected() {
+  try {
+    const res = await fetch("/api/vocab");
+    if (!res.ok) return;
+    const data = await res.json();
+    collected.clear();
+    for (const item of data.items) collected.set(item.lemma, item.id);
+    updateCollectBtn();
+  } catch {
+    // 讀不到時按鈕維持「加入單字庫」，重複收藏會由後端回報
+  }
+}
+
+// 已經查過 AI 解釋的話，中文意思與用法一起存；沒查過先存空白
+async function collect() {
+  const info = current;
+  const ai = aiCache.get(aiKey(info));
+  collectBtn.disabled = true;
+  showCollectMessage("");
+  let error = "";
+  try {
+    const res = await fetch("/api/vocab", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lemma: info.lemma,
+        reading: info.lemmaReading,
+        pos: info.pos,
+        meaning_zh: ai?.meaning_zh ?? "",
+        usage_note: ai?.usage_note ?? "",
+        context_sentence: info.sentence,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      collected.set(data.lemma, data.id);
+    } else {
+      error = data.error?.message ?? "收藏失敗，請稍後再試。";
+      if (data.error?.code === "vocab_exists") await loadCollected();
+    }
+  } catch {
+    error = "無法連線到伺服器。";
+  }
+  // 等待期間使用者可能已經點了別的字
+  if (current !== info) return;
+  showCollectMessage(error);
+  updateCollectBtn();
+}
+
 function select(start, end) {
   tokenEls.forEach((el, i) => el.classList.toggle("selected", i >= start && i <= end));
   showDetail(describeSelection(start, end));
@@ -245,6 +323,99 @@ function onArticleClick(e) {
   }
   anchor = index;
   select(index, index);
+}
+
+// --- 單字庫頁 ---
+
+function showVocabMessage(text) {
+  vocabMessage.textContent = text;
+  vocabMessage.hidden = !text;
+}
+
+function formatTime(iso) {
+  return iso.replace("T", " ").slice(0, 16); // 2026-10-28T09:30:00 → 2026-10-28 09:30
+}
+
+function cell(text, className = "", lang = "") {
+  const td = document.createElement("td");
+  td.textContent = text || "—";
+  if (className) td.className = className;
+  if (lang) td.lang = lang;
+  return td;
+}
+
+function renderVocabRow(item) {
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "delete-btn";
+  del.textContent = "刪除";
+  del.addEventListener("click", () => deleteVocab(item));
+  const action = document.createElement("td");
+  action.append(del);
+
+  const tr = document.createElement("tr");
+  tr.append(
+    cell(item.lemma, "lemma", "ja"),
+    cell(item.reading, "", "ja"),
+    cell(item.pos, "", "ja"),
+    cell(item.meaning_zh),
+    cell(item.context_sentence, "sentence", "ja"),
+    cell(formatTime(item.created_at), "time"),
+    action,
+  );
+  return tr;
+}
+
+async function loadVocab() {
+  const seq = ++vocabRequest;
+  const params = new URLSearchParams();
+  if (vocabSearch.value.trim()) params.set("keyword", vocabSearch.value.trim());
+  if (vocabPos.value) params.set("pos", vocabPos.value);
+  let items = [];
+  let error = "";
+  try {
+    const res = await fetch(`/api/vocab?${params}`);
+    const data = await res.json();
+    if (res.ok) items = data.items;
+    else error = data.error?.message ?? "讀取單字庫失敗，請稍後再試。";
+  } catch {
+    error = "無法連線到伺服器。";
+  }
+  // 打字搜尋時可能有較新的請求，舊的結果不顯示
+  if (seq !== vocabRequest) return;
+  showVocabMessage(error);
+  vocabBody.replaceChildren(...items.map(renderVocabRow));
+  vocabCount.textContent = error ? "" : `${items.length} 個單字`;
+  vocabEmpty.hidden = !!error || items.length > 0;
+  vocabEmpty.textContent = params.size
+    ? "沒有符合條件的單字。"
+    : "單字庫還沒有單字。在閱讀頁點選單字後，按「加入單字庫」。";
+}
+
+async function deleteVocab(item) {
+  if (!confirm(`確定要刪除「${item.lemma}」？`)) return;
+  try {
+    const res = await fetch(`/api/vocab/${item.id}`, { method: "DELETE" });
+    // 404 代表已經不在了，一樣當作刪除成功
+    if (!res.ok && res.status !== 404) {
+      const data = await res.json();
+      return showVocabMessage(data.error?.message ?? "刪除失敗，請稍後再試。");
+    }
+  } catch {
+    return showVocabMessage("無法連線到伺服器。");
+  }
+  collected.delete(item.lemma);
+  updateCollectBtn();
+  loadVocab();
+}
+
+function switchView(name) {
+  for (const tab of tabs) {
+    const active = tab.dataset.view === name;
+    tab.setAttribute("aria-selected", active);
+    document.getElementById(`view-${tab.dataset.view}`).hidden = !active;
+  }
+  if (name === "vocab") loadVocab();
 }
 
 async function analyze() {
@@ -302,6 +473,13 @@ input.addEventListener("keydown", (e) => {
 });
 article.addEventListener("click", onArticleClick);
 aiBtn.addEventListener("click", explain);
+collectBtn.addEventListener("click", collect);
+for (const tab of tabs) tab.addEventListener("click", () => switchView(tab.dataset.view));
+vocabSearch.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadVocab, 250);
+});
+vocabPos.addEventListener("change", loadVocab);
 prevBtn.addEventListener("click", () => goToPage(pageIndex - 1));
 nextBtn.addEventListener("click", () => goToPage(pageIndex + 1));
 // Shift+點擊預設會反白文字，擋掉以免干擾選取
@@ -314,3 +492,5 @@ rubyToggle.addEventListener("change", () => {
 colorToggle.addEventListener("change", () => {
   reader.classList.toggle("no-pos-color", !colorToggle.checked);
 });
+
+loadCollected();

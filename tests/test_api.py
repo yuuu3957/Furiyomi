@@ -260,6 +260,11 @@ def test_vocab_add_without_ai_explanation():
     assert res.json()["meaning_zh"] == ""
 
 
+def test_vocab_reading_from_lemma():
+    res = client.post("/api/vocab", json={"lemma": "食べる", "pos": "動詞"})
+    assert res.json()["reading"] == "たべる"
+
+
 def test_vocab_duplicate():
     client.post("/api/vocab", json=VOCAB_BODY)
     res = client.post("/api/vocab", json=VOCAB_BODY)

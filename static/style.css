@@ -180,6 +180,62 @@ rt {
 .ai-area .message { margin: 8px 0 0; }
 .ai-area dd.translation { color: var(--muted); font-size: 0.95rem; }
 
+/* --- 分頁切換 --- */
+header { display: flex; align-items: center; gap: 32px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { padding: 6px 16px; background: none; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: #eef3f9; color: var(--accent); font-weight: bold; }
+.view[hidden] { display: none; }
+
+/* --- 收藏按鈕 --- */
+.collect-area { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.collect-area .message { margin: 8px 0 0; }
+#collect-btn:disabled { cursor: default; }
+
+/* --- 單字庫頁 --- */
+.vocab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.vocab-toolbar input, .vocab-toolbar select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+.vocab-toolbar input { flex: 1 1 240px; max-width: 360px; }
+#vocab-count { color: var(--muted); font-size: 0.9rem; }
+
+.table-wrap { overflow-x: auto; }
+.vocab-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.vocab-table th, .vocab-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.vocab-table th { background: #f3f3ef; color: var(--muted); font-size: 0.85rem; font-weight: normal; white-space: nowrap; }
+.vocab-table td.lemma { font-size: 1.1rem; white-space: nowrap; }
+.vocab-table td.sentence { min-width: 200px; color: var(--muted); font-size: 0.9rem; }
+.vocab-table td.time { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+.delete-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--error);
+  font-size: 0.85rem;
+}
+.delete-btn:hover { border-color: var(--error); }
+
 @media (max-width: 760px) {
   .reader { grid-template-columns: 1fr; }
   .detail { position: static; }

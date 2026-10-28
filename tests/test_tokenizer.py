@@ -1,6 +1,6 @@
 import pytest
 
-from core.tokenizer import split_sentences, tokenize
+from core.tokenizer import lemma_reading, split_sentences, tokenize
 
 
 def find(tokens, surface):
@@ -130,3 +130,10 @@ def test_sentence_attached_to_tokens():
 
 def test_split_sentences_keeps_delimiters():
     assert split_sentences("あ。い！\nう") == ["あ。", "い！", "\n", "う"]
+
+
+@pytest.mark.parametrize("lemma, reading", [
+    ("食べる", "たべる"), ("乗り換える", "のりかえる"), ("可愛い", "かわいい"), ("する", "する"), ("", ""),
+])
+def test_lemma_reading(lemma, reading):
+    assert lemma_reading(lemma) == reading
