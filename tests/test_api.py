@@ -237,3 +237,56 @@ def test_pdf_extract_requires_file():
     res = client.post("/api/pdf/extract")
     assert res.status_code == 422
     assert res.json()["error"]["code"] == "invalid_request"
+
+
+# --- /api/vocab ---
+
+VOCAB_BODY = {"lemma": "食べる", "reading": "たべる", "pos": "動詞", "meaning_zh": "吃",
+              "usage_note": "說明", "context_sentence": "寿司を食べました。"}
+
+
+def test_vocab_add_and_list():
+    res = client.post("/api/vocab", json=VOCAB_BODY)
+    assert res.status_code == 201
+    entry = res.json()
+    assert {k: entry[k] for k in VOCAB_BODY} == VOCAB_BODY
+    assert entry["id"] > 0 and entry["created_at"]
+    assert client.get("/api/vocab").json() == {"items": [entry]}
+
+
+def test_vocab_add_without_ai_explanation():
+    res = client.post("/api/vocab", json={"lemma": "猫", "reading": "ねこ", "pos": "名詞"})
+    assert res.status_code == 201
+    assert res.json()["meaning_zh"] == ""
+
+
+def test_vocab_duplicate():
+    client.post("/api/vocab", json=VOCAB_BODY)
+    res = client.post("/api/vocab", json=VOCAB_BODY)
+    assert res.status_code == 409
+    assert res.json()["error"] == {"code": "vocab_exists", "message": "「食べる」已在單字庫中。"}
+
+
+def test_vocab_invalid_body():
+    res = client.post("/api/vocab", json={**VOCAB_BODY, "lemma": ""})
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "invalid_request"
+
+
+def test_vocab_search_and_filter():
+    client.post("/api/vocab", json=VOCAB_BODY)
+    client.post("/api/vocab", json={"lemma": "猫", "reading": "ねこ", "pos": "名詞", "meaning_zh": "貓"})
+    lemmas = lambda params: [e["lemma"] for e in client.get("/api/vocab", params=params).json()["items"]]
+    assert lemmas({"keyword": "貓"}) == ["猫"]
+    assert lemmas({"pos": "動詞"}) == ["食べる"]
+    assert lemmas({"keyword": "食", "pos": "名詞"}) == []
+
+
+def test_vocab_delete():
+    vocab_id = client.post("/api/vocab", json=VOCAB_BODY).json()["id"]
+    assert client.delete(f"/api/vocab/{vocab_id}").json() == {"deleted": vocab_id}
+    assert client.get("/api/vocab").json() == {"items": []}
+    res = client.delete(f"/api/vocab/{vocab_id}")
+    assert res.status_code == 404
+    assert res.json()["error"]["code"] == "vocab_not_found"
+

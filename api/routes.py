@@ -13,7 +13,9 @@ from core.llm_client import LLMError, Provider, get_provider
 from core.paging import PAGE_LIMIT, split_pages
 from core.pdf_reader import PdfError, extract_text
 from core.tokenizer import tokenize
-from core.vocab_repo import connect, explain_with_cache
+from core.vocab_repo import (
+    DuplicateVocabError, add_vocab, connect, delete_vocab, explain_with_cache, search_vocab,
+)
 
 MAX_TEXT_LENGTH = PAGE_LIMIT  # /analyze 一次只處理一頁
 MAX_DOCUMENT_LENGTH = 20000
@@ -107,3 +109,33 @@ def explain_word(
     except LLMError as e:
         raise ApiError(502 if e.code == "llm_bad_response" else 503, e.code, e.message)
     return asdict(result)
+
+
+class VocabRequest(BaseModel):
+    lemma: str = Field(min_length=1, max_length=100)
+    reading: str = Field(max_length=100)
+    pos: str = Field(max_length=50)
+    meaning_zh: str = Field("", max_length=200)
+    usage_note: str = Field("", max_length=2000)
+    context_sentence: str = Field("", max_length=MAX_TEXT_LENGTH)
+
+
+@router.get("/vocab")
+def list_vocab(keyword: str | None = None, pos: str | None = None, db: sqlite3.Connection = Depends(get_db)):
+    return {"items": [asdict(e) for e in search_vocab(db, keyword, pos)]}
+
+
+@router.post("/vocab", status_code=201)
+def create_vocab(req: VocabRequest, db: sqlite3.Connection = Depends(get_db)):
+    try:
+        entry = add_vocab(db, **req.model_dump())
+    except DuplicateVocabError as e:
+        raise ApiError(409, "vocab_exists", str(e))
+    return asdict(entry)
+
+
+@router.delete("/vocab/{vocab_id}")
+def remove_vocab(vocab_id: int, db: sqlite3.Connection = Depends(get_db)):
+    if not delete_vocab(db, vocab_id):
+        raise ApiError(404, "vocab_not_found", "找不到這個單字，可能已被刪除。")
+    return {"deleted": vocab_id}
