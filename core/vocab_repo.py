@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.llm_client import AIExplanation, Provider, explain, parse_explanation
+from core.tokenizer import lemma_reading
 
 DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "furiyomi.db"
 
@@ -129,8 +130,8 @@ def get_vocab_by_lemma(conn: sqlite3.Connection, lemma: str) -> VocabEntry | Non
 def add_vocab(
     conn: sqlite3.Connection,
     lemma: str,
-    reading: str,
     pos: str,
+    reading: str = "",
     surface: str = "",
     context_sentence: str = "",
     meaning_zh: str = "",
@@ -138,8 +139,10 @@ def add_vocab(
     now: datetime | None = None,
 ) -> VocabEntry:
     """收藏一個詞與它所在的句子：新的詞就建立，已收藏的詞就多加一個例句。
-    同一個詞在同一句已經收藏過時丟 DuplicateVocabError。還沒查 AI 解釋時中文意思先留空。"""
+    同一個詞在同一句已經收藏過時丟 DuplicateVocabError。還沒查 AI 解釋時中文意思先留空。
+    reading 留空時由原形推算（表記不是原形時，例如點「食べ」收藏「食べる」）。"""
     created_at = _now(now)
+    reading = reading or lemma_reading(lemma)
     try:
         with conn:
             conn.execute(

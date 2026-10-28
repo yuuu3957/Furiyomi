@@ -95,13 +95,17 @@ pytest
 
 ## MCP 工具
 
-`mcp_server.py` 把斷詞、假名標註與 PDF 讀取包成 MCP 工具，可以在 Claude Desktop 等 MCP 客戶端中使用。
+`mcp_server.py` 把斷詞、假名標註、PDF 讀取與單字庫包成 MCP 工具，可以在 Claude Desktop 等 MCP 客戶端中使用。單字庫工具和網頁共用同一個資料庫，在 Claude 裡收藏的單字，網頁的單字庫頁也看得到。
 
 | 工具 | 功能 |
 |---|---|
 | `analyze_japanese(text)` | 斷詞，回傳每個詞的表記、原形、讀音、詞性 |
 | `add_furigana(text)` | 在漢字後面用括號標讀音，如「寿司(すし)を食(た)べました」 |
 | `extract_pdf_text(path)` | 抽出 PDF 文字，接回段落後切成 2,000 字內的區塊 |
+| `search_vocab(keyword?, pos?)` | 查詢單字庫，含每個例句與該句中的中文意思 |
+| `add_to_vocab(lemma, pos, context_sentence?, ...)` | 收藏單字；已收藏的單字在新的句子收藏時加為例句 |
+| `delete_vocab(vocab_id)` | 刪除單字與所有例句 |
+| `delete_vocab_example(example_id)` | 刪除單一例句 |
 
 Claude Desktop 的設定（`claude_desktop_config.json`），路徑換成自己的專案位置：
 
