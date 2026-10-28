@@ -47,7 +47,8 @@ let anchor = null;  // Shift 選取的起點（Token 索引）
 let current = null; // 目前詳情面板顯示的選取內容
 // 這次瀏覽看過的 AI 解釋，再點同一個字時直接顯示；跨次保存的快取在後端 SQLite。只存成功的結果
 const aiCache = new Map();
-const collected = new Map(); // 已收藏的原形 → id，決定「加入單字庫」按鈕的狀態
+// 已收藏的原形 → 收藏過的句子，決定按鈕是「加入單字庫」「加入這個例句」還是「已在單字庫」
+const collected = new Map();
 let vocabRequest = 0;        // 搜尋時只顯示最後一次請求的結果
 let searchTimer = null;
 
@@ -253,9 +254,14 @@ function showCollectMessage(text) {
 
 function updateCollectBtn() {
   if (!current) return;
-  const done = collected.has(current.lemma);
+  const sentences = collected.get(current.lemma);
+  const done = !!sentences?.has(current.sentence);
   collectBtn.disabled = done;
-  collectBtn.textContent = done ? "已在單字庫" : "加入單字庫";
+  collectBtn.textContent = done ? "已在單字庫" : sentences ? "加入這個例句" : "加入單字庫";
+}
+
+function rememberCollected(item) {
+  collected.set(item.lemma, new Set(item.examples.map((ex) => ex.context_sentence)));
 }
 
 async function loadCollected() {
@@ -264,14 +270,15 @@ async function loadCollected() {
     if (!res.ok) return;
     const data = await res.json();
     collected.clear();
-    for (const item of data.items) collected.set(item.lemma, item.id);
+    data.items.forEach(rememberCollected);
     updateCollectBtn();
   } catch {
     // 讀不到時按鈕維持「加入單字庫」，重複收藏會由後端回報
   }
 }
 
-// 已經查過 AI 解釋的話，中文意思與用法一起存；沒查過先存空白
+// 同一個詞在不同句子收藏會成為新的例句。已經查過 AI 解釋的話，中文意思與用法一起存；
+// 沒查過先存空白，之後按 AI 解釋時後端會補上
 async function collect() {
   const info = current;
   const ai = aiCache.get(aiKey(info));
@@ -286,6 +293,7 @@ async function collect() {
         lemma: info.lemma,
         reading: info.lemmaReading,
         pos: info.pos,
+        surface: info.surface,
         meaning_zh: ai?.meaning_zh ?? "",
         usage_note: ai?.usage_note ?? "",
         context_sentence: info.sentence,
@@ -293,7 +301,7 @@ async function collect() {
     });
     const data = await res.json();
     if (res.ok) {
-      collected.set(data.lemma, data.id);
+      rememberCollected(data);
     } else {
       error = data.error?.message ?? "收藏失敗，請稍後再試。";
       if (data.error?.code === "vocab_exists") await loadCollected();
@@ -344,22 +352,64 @@ function cell(text, className = "", lang = "") {
   return td;
 }
 
+function deleteButton(className, text, title, onClick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = className;
+  btn.textContent = text;
+  btn.title = title;
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
+// 原句中把收藏時選取的表記標出來
+function renderSentence(ex) {
+  const div = document.createElement("div");
+  div.className = "sentence";
+  div.lang = "ja";
+  const at = ex.surface ? ex.context_sentence.indexOf(ex.surface) : -1;
+  if (at < 0) {
+    div.textContent = ex.context_sentence || "—";
+    return div;
+  }
+  const mark = document.createElement("mark");
+  mark.textContent = ex.surface;
+  div.append(ex.context_sentence.slice(0, at), mark, ex.context_sentence.slice(at + ex.surface.length));
+  return div;
+}
+
+// 一詞多義：每個例句各自有該句中的中文意思；只有一個例句時刪除整個詞即可，不另外顯示刪除鈕
+function renderExamples(item) {
+  const ul = document.createElement("ul");
+  ul.className = "examples";
+  for (const ex of item.examples) {
+    const li = document.createElement("li");
+    const meaning = document.createElement("span");
+    meaning.className = "meaning";
+    meaning.textContent = ex.meaning_zh || "（尚未查 AI 解釋）";
+    meaning.classList.toggle("missing", !ex.meaning_zh);
+    li.append(meaning);
+    if (item.examples.length > 1) {
+      li.append(deleteButton("example-delete", "×", "刪除這個例句", () => deleteExample(ex)));
+    }
+    li.append(renderSentence(ex));
+    ul.append(li);
+  }
+  const td = document.createElement("td");
+  td.append(ul);
+  return td;
+}
+
 function renderVocabRow(item) {
-  const del = document.createElement("button");
-  del.type = "button";
-  del.className = "delete-btn";
-  del.textContent = "刪除";
-  del.addEventListener("click", () => deleteVocab(item));
   const action = document.createElement("td");
-  action.append(del);
+  action.append(deleteButton("delete-btn", "刪除", "刪除這個單字與所有例句", () => deleteVocab(item)));
 
   const tr = document.createElement("tr");
   tr.append(
     cell(item.lemma, "lemma", "ja"),
     cell(item.reading, "", "ja"),
     cell(item.pos, "", "ja"),
-    cell(item.meaning_zh),
-    cell(item.context_sentence, "sentence", "ja"),
+    renderExamples(item),
     cell(formatTime(item.created_at), "time"),
     action,
   );
@@ -392,10 +442,11 @@ async function loadVocab() {
     : "單字庫還沒有單字。在閱讀頁點選單字後，按「加入單字庫」。";
 }
 
-async function deleteVocab(item) {
-  if (!confirm(`確定要刪除「${item.lemma}」？`)) return;
+// 刪除後重新讀取列表與收藏狀態
+async function sendDelete(url, question) {
+  if (!confirm(question)) return;
   try {
-    const res = await fetch(`/api/vocab/${item.id}`, { method: "DELETE" });
+    const res = await fetch(url, { method: "DELETE" });
     // 404 代表已經不在了，一樣當作刪除成功
     if (!res.ok && res.status !== 404) {
       const data = await res.json();
@@ -404,9 +455,17 @@ async function deleteVocab(item) {
   } catch {
     return showVocabMessage("無法連線到伺服器。");
   }
-  collected.delete(item.lemma);
-  updateCollectBtn();
   loadVocab();
+  loadCollected();
+}
+
+function deleteVocab(item) {
+  const count = item.examples.length > 1 ? `與它的 ${item.examples.length} 個例句` : "";
+  sendDelete(`/api/vocab/${item.id}`, `確定要刪除「${item.lemma}」${count}？`);
+}
+
+function deleteExample(ex) {
+  sendDelete(`/api/vocab/examples/${ex.id}`, `確定要刪除這個例句？\n${ex.context_sentence}`);
 }
 
 function switchView(name) {

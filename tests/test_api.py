@@ -241,23 +241,30 @@ def test_pdf_extract_requires_file():
 
 # --- /api/vocab ---
 
-VOCAB_BODY = {"lemma": "食べる", "reading": "たべる", "pos": "動詞", "meaning_zh": "吃",
+VOCAB_BODY = {"lemma": "食べる", "reading": "たべる", "pos": "動詞", "surface": "食べ", "meaning_zh": "吃",
               "usage_note": "說明", "context_sentence": "寿司を食べました。"}
 
 
+def add(**override):
+    return client.post("/api/vocab", json={**VOCAB_BODY, **override})
+
+
 def test_vocab_add_and_list():
-    res = client.post("/api/vocab", json=VOCAB_BODY)
+    res = add()
     assert res.status_code == 201
     entry = res.json()
-    assert {k: entry[k] for k in VOCAB_BODY} == VOCAB_BODY
+    assert (entry["lemma"], entry["reading"], entry["pos"]) == ("食べる", "たべる", "動詞")
     assert entry["id"] > 0 and entry["created_at"]
+    [ex] = entry["examples"]
+    assert (ex["surface"], ex["context_sentence"], ex["meaning_zh"], ex["usage_note"]) == (
+        "食べ", "寿司を食べました。", "吃", "說明")
     assert client.get("/api/vocab").json() == {"items": [entry]}
 
 
 def test_vocab_add_without_ai_explanation():
     res = client.post("/api/vocab", json={"lemma": "猫", "reading": "ねこ", "pos": "名詞"})
     assert res.status_code == 201
-    assert res.json()["meaning_zh"] == ""
+    assert res.json()["examples"][0]["meaning_zh"] == ""
 
 
 def test_vocab_reading_from_lemma():
@@ -265,21 +272,29 @@ def test_vocab_reading_from_lemma():
     assert res.json()["reading"] == "たべる"
 
 
-def test_vocab_duplicate():
-    client.post("/api/vocab", json=VOCAB_BODY)
-    res = client.post("/api/vocab", json=VOCAB_BODY)
+def test_vocab_another_sentence_adds_example():
+    first = add().json()
+    res = add(context_sentence="パンを食べる。", meaning_zh="吃（麵包）")
+    assert res.status_code == 201
+    assert res.json()["id"] == first["id"]
+    assert [ex["context_sentence"] for ex in res.json()["examples"]] == ["寿司を食べました。", "パンを食べる。"]
+
+
+def test_vocab_duplicate_sentence():
+    add()
+    res = add()
     assert res.status_code == 409
-    assert res.json()["error"] == {"code": "vocab_exists", "message": "「食べる」已在單字庫中。"}
+    assert res.json()["error"] == {"code": "vocab_exists", "message": "「食べる」的這個例句已在單字庫中。"}
 
 
 def test_vocab_invalid_body():
-    res = client.post("/api/vocab", json={**VOCAB_BODY, "lemma": ""})
+    res = add(lemma="")
     assert res.status_code == 422
     assert res.json()["error"]["code"] == "invalid_request"
 
 
 def test_vocab_search_and_filter():
-    client.post("/api/vocab", json=VOCAB_BODY)
+    add()
     client.post("/api/vocab", json={"lemma": "猫", "reading": "ねこ", "pos": "名詞", "meaning_zh": "貓"})
     lemmas = lambda params: [e["lemma"] for e in client.get("/api/vocab", params=params).json()["items"]]
     assert lemmas({"keyword": "貓"}) == ["猫"]
@@ -288,10 +303,30 @@ def test_vocab_search_and_filter():
 
 
 def test_vocab_delete():
-    vocab_id = client.post("/api/vocab", json=VOCAB_BODY).json()["id"]
+    vocab_id = add().json()["id"]
     assert client.delete(f"/api/vocab/{vocab_id}").json() == {"deleted": vocab_id}
     assert client.get("/api/vocab").json() == {"items": []}
     res = client.delete(f"/api/vocab/{vocab_id}")
     assert res.status_code == 404
     assert res.json()["error"]["code"] == "vocab_not_found"
 
+
+def test_vocab_delete_example():
+    add()
+    entry = add(context_sentence="パンを食べる。").json()
+    first, last = (ex["id"] for ex in entry["examples"])
+    assert client.delete(f"/api/vocab/examples/{first}").json() == {"deleted": first, "deleted_vocab": None}
+    res = client.delete(f"/api/vocab/examples/{last}")
+    assert res.json() == {"deleted": last, "deleted_vocab": entry["id"]}
+    assert client.get("/api/vocab").json() == {"items": []}
+    res = client.delete(f"/api/vocab/examples/{last}")
+    assert res.status_code == 404
+    assert res.json()["error"]["code"] == "example_not_found"
+
+
+def test_explain_fills_collected_example(use_provider):
+    use_provider(FakeProvider(json.dumps(EXPLANATION)))
+    add(meaning_zh="", usage_note="")
+    client.post("/api/explain", json={**EXPLAIN_BODY, "sentence": VOCAB_BODY["context_sentence"]})
+    [entry] = client.get("/api/vocab").json()["items"]
+    assert entry["examples"][0]["meaning_zh"] == EXPLANATION["meaning_zh"]

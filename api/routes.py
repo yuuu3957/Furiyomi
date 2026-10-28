@@ -14,7 +14,7 @@ from core.paging import PAGE_LIMIT, split_pages
 from core.pdf_reader import PdfError, extract_text
 from core.tokenizer import lemma_reading, tokenize
 from core.vocab_repo import (
-    DuplicateVocabError, add_vocab, connect, delete_vocab, explain_with_cache, search_vocab,
+    DuplicateVocabError, add_vocab, connect, delete_example, delete_vocab, explain_with_cache, search_vocab,
 )
 
 MAX_TEXT_LENGTH = PAGE_LIMIT  # /analyze 一次只處理一頁
@@ -115,6 +115,7 @@ class VocabRequest(BaseModel):
     lemma: str = Field(min_length=1, max_length=100)
     reading: str = Field("", max_length=100)  # 空白時由原形推算
     pos: str = Field(max_length=50)
+    surface: str = Field("", max_length=100)
     meaning_zh: str = Field("", max_length=200)
     usage_note: str = Field("", max_length=2000)
     context_sentence: str = Field("", max_length=MAX_TEXT_LENGTH)
@@ -139,3 +140,12 @@ def remove_vocab(vocab_id: int, db: sqlite3.Connection = Depends(get_db)):
     if not delete_vocab(db, vocab_id):
         raise ApiError(404, "vocab_not_found", "找不到這個單字，可能已被刪除。")
     return {"deleted": vocab_id}
+
+
+@router.delete("/vocab/examples/{example_id}")
+def remove_example(example_id: int, db: sqlite3.Connection = Depends(get_db)):
+    deleted_vocab = delete_example(db, example_id)
+    if deleted_vocab is None:
+        raise ApiError(404, "example_not_found", "找不到這個例句，可能已被刪除。")
+    # 刪掉最後一個例句時詞也一起刪除，前端據此更新收藏狀態
+    return {"deleted": example_id, "deleted_vocab": deleted_vocab or None}

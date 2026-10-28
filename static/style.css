@@ -225,7 +225,19 @@ header { display: flex; align-items: center; gap: 32px; }
 }
 .vocab-table th { background: #f3f3ef; color: var(--muted); font-size: 0.85rem; font-weight: normal; white-space: nowrap; }
 .vocab-table td.lemma { font-size: 1.1rem; white-space: nowrap; }
-.vocab-table td.sentence { min-width: 200px; color: var(--muted); font-size: 0.9rem; }
+.examples { margin: 0; padding: 0; list-style: none; min-width: 240px; }
+.examples li + li { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.examples .meaning.missing { color: var(--muted); font-size: 0.85rem; }
+.examples .sentence { margin-top: 2px; color: var(--muted); font-size: 0.9rem; }
+.examples mark { background: var(--selected); color: var(--text); }
+.example-delete {
+  margin-left: 6px;
+  padding: 0 6px;
+  background: none;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.example-delete:hover { color: var(--error); }
 .vocab-table td.time { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 .delete-btn {
   padding: 4px 12px;
