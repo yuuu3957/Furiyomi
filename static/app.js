@@ -47,7 +47,7 @@ let anchor = null;  // Shift 選取的起點（Token 索引）
 let current = null; // 目前詳情面板顯示的選取內容
 // 這次瀏覽看過的 AI 解釋，再點同一個字時直接顯示；跨次保存的快取在後端 SQLite。只存成功的結果
 const aiCache = new Map();
-// 已收藏的原形 → 收藏過的句子，決定按鈕是「加入單字庫」「加入這個例句」還是「已在單字庫」
+// 已收藏的原形 → 收藏過的句子；這一句收藏過才顯示「已在單字庫」，換一句可以再加為新的例句
 const collected = new Map();
 let vocabRequest = 0;        // 搜尋時只顯示最後一次請求的結果
 let searchTimer = null;
@@ -257,7 +257,7 @@ function updateCollectBtn() {
   const sentences = collected.get(current.lemma);
   const done = !!sentences?.has(current.sentence);
   collectBtn.disabled = done;
-  collectBtn.textContent = done ? "已在單字庫" : sentences ? "加入這個例句" : "加入單字庫";
+  collectBtn.textContent = done ? "已在單字庫" : "加入單字庫";
 }
 
 function rememberCollected(item) {
@@ -460,12 +460,11 @@ async function sendDelete(url, question) {
 }
 
 function deleteVocab(item) {
-  const count = item.examples.length > 1 ? `與它的 ${item.examples.length} 個例句` : "";
-  sendDelete(`/api/vocab/${item.id}`, `確定要刪除「${item.lemma}」${count}？`);
+  sendDelete(`/api/vocab/${item.id}`, `是否刪除「${item.lemma}」？`);
 }
 
 function deleteExample(ex) {
-  sendDelete(`/api/vocab/examples/${ex.id}`, `確定要刪除這個例句？\n${ex.context_sentence}`);
+  sendDelete(`/api/vocab/examples/${ex.id}`, "是否刪除這個例句？");
 }
 
 function switchView(name) {
