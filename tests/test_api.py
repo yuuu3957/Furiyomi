@@ -242,7 +242,8 @@ def test_pdf_extract_requires_file():
 # --- /api/vocab ---
 
 VOCAB_BODY = {"lemma": "食べる", "reading": "たべる", "pos": "動詞", "surface": "食べ", "meaning_zh": "吃",
-              "usage_note": "說明", "context_sentence": "寿司を食べました。"}
+              "usage_note": "說明", "example_ja": "パンを食べます。", "example_zh": "吃麵包。",
+              "context_sentence": "寿司を食べました。"}
 
 
 def add(**override):
@@ -256,8 +257,8 @@ def test_vocab_add_and_list():
     assert (entry["lemma"], entry["reading"], entry["pos"]) == ("食べる", "たべる", "動詞")
     assert entry["id"] > 0 and entry["created_at"]
     [ex] = entry["examples"]
-    assert (ex["surface"], ex["context_sentence"], ex["meaning_zh"], ex["usage_note"]) == (
-        "食べ", "寿司を食べました。", "吃", "說明")
+    assert {k: ex[k] for k in VOCAB_BODY if k in ex} == {
+        k: v for k, v in VOCAB_BODY.items() if k not in ("lemma", "reading", "pos")}
     assert client.get("/api/vocab").json() == {"items": [entry]}
 
 
@@ -326,7 +327,8 @@ def test_vocab_delete_example():
 
 def test_explain_fills_collected_example(use_provider):
     use_provider(FakeProvider(json.dumps(EXPLANATION)))
-    add(meaning_zh="", usage_note="")
+    add(meaning_zh="", usage_note="", example_ja="", example_zh="")
     client.post("/api/explain", json={**EXPLAIN_BODY, "sentence": VOCAB_BODY["context_sentence"]})
     [entry] = client.get("/api/vocab").json()["items"]
-    assert entry["examples"][0]["meaning_zh"] == EXPLANATION["meaning_zh"]
+    ex = entry["examples"][0]
+    assert {k: ex[k] for k in EXPLANATION} == EXPLANATION

@@ -193,7 +193,8 @@ def test_fill_missing_meaning(conn):
     entry = add_vocab(conn, "食べる", "動詞", "たべる", context_sentence="寿司を食べた。")
     assert fill_missing_meaning(conn, "食べる", "寿司を食べた。", EXPLANATION) is True
     [ex] = get_vocab(conn, entry.id).examples
-    assert (ex.meaning_zh, ex.usage_note) == ("吃", "連用形。")
+    assert (ex.meaning_zh, ex.usage_note, ex.example_ja, ex.example_zh) == (
+        "吃", "連用形。", "パンを食べます。", "吃麵包。")
 
 
 def test_fill_missing_meaning_only_that_sentence(conn):

@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS vocab_example (
     context_sentence TEXT NOT NULL DEFAULT '',
     meaning_zh TEXT NOT NULL DEFAULT '',
     usage_note TEXT NOT NULL DEFAULT '',
+    example_ja TEXT NOT NULL DEFAULT '',
+    example_zh TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     UNIQUE (vocab_id, context_sentence)
 );
@@ -57,12 +59,15 @@ CREATE TABLE IF NOT EXISTS lookup_log (
 
 @dataclass
 class VocabExample:
-    """同一個詞在不同句子裡收藏一次就是一個例句；中文意思是該句中的意思（一詞多義各自保存）。"""
+    """同一個詞在不同句子裡收藏一次就是一個例句；中文意思是該句中的意思（一詞多義各自保存）。
+    meaning_zh 到 example_zh 是該句的 AI 解釋，還沒查時是空白。"""
     id: int
     surface: str
     context_sentence: str
     meaning_zh: str
     usage_note: str
+    example_ja: str
+    example_zh: str
     created_at: str
 
 
@@ -136,6 +141,8 @@ def add_vocab(
     context_sentence: str = "",
     meaning_zh: str = "",
     usage_note: str = "",
+    example_ja: str = "",
+    example_zh: str = "",
     now: datetime | None = None,
 ) -> VocabEntry:
     """收藏一個詞與它所在的句子：新的詞就建立，已收藏的詞就多加一個例句。
@@ -151,9 +158,9 @@ def add_vocab(
             )
             vocab_id = conn.execute("SELECT id FROM vocab WHERE lemma = ?", (lemma,)).fetchone()["id"]
             conn.execute(
-                "INSERT INTO vocab_example (vocab_id, surface, context_sentence, meaning_zh, usage_note, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (vocab_id, surface, context_sentence, meaning_zh, usage_note, created_at),
+                "INSERT INTO vocab_example (vocab_id, surface, context_sentence, meaning_zh, usage_note,"
+                " example_ja, example_zh, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (vocab_id, surface, context_sentence, meaning_zh, usage_note, example_ja, example_zh, created_at),
             )
     except sqlite3.IntegrityError:
         raise DuplicateVocabError(get_vocab_by_lemma(conn, lemma))
@@ -161,12 +168,12 @@ def add_vocab(
 
 
 def fill_missing_meaning(conn: sqlite3.Connection, lemma: str, sentence: str, result: AIExplanation) -> bool:
-    """先收藏、後查 AI 解釋時，把中文意思與用法補進該句的例句；已經有中文意思的不覆蓋。"""
+    """先收藏、後查 AI 解釋時，把 AI 解釋補進該句的例句；已經有中文意思的不覆蓋。"""
     with conn:
         cur = conn.execute(
-            "UPDATE vocab_example SET meaning_zh = ?, usage_note = ?"
+            "UPDATE vocab_example SET meaning_zh = ?, usage_note = ?, example_ja = ?, example_zh = ?"
             " WHERE context_sentence = ? AND meaning_zh = '' AND vocab_id = (SELECT id FROM vocab WHERE lemma = ?)",
-            (result.meaning_zh, result.usage_note, sentence, lemma),
+            (result.meaning_zh, result.usage_note, result.example_ja, result.example_zh, sentence, lemma),
         )
     return cur.rowcount > 0
 

@@ -118,6 +118,8 @@ class VocabRequest(BaseModel):
     surface: str = Field("", max_length=100)
     meaning_zh: str = Field("", max_length=200)
     usage_note: str = Field("", max_length=2000)
+    example_ja: str = Field("", max_length=500)
+    example_zh: str = Field("", max_length=500)
     context_sentence: str = Field("", max_length=MAX_TEXT_LENGTH)
 
 

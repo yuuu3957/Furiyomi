@@ -238,6 +238,28 @@ header { display: flex; align-items: center; gap: 32px; }
   line-height: 1.2;
 }
 .example-delete:hover { color: var(--error); }
+.detail-toggle {
+  margin-left: 8px;
+  padding: 0 6px;
+  background: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+.example-detail {
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.example-detail[hidden] { display: none; }
+.example-detail p { margin: 0 0 6px; color: var(--muted); }
+.example-detail button { padding: 4px 14px; font-size: 0.85rem; }
+.example-detail dl { margin: 0; }
+.example-detail dt { margin-top: 6px; color: var(--muted); font-size: 0.75rem; }
+.example-detail dt:first-child { margin-top: 0; }
+.example-detail dd { margin: 0; }
+.example-detail dd.translation { color: var(--muted); }
 .vocab-table td.time { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 .delete-btn {
   padding: 4px 12px;

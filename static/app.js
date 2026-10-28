@@ -49,6 +49,7 @@ let current = null; // 目前詳情面板顯示的選取內容
 const aiCache = new Map();
 // 已收藏的原形 → 收藏過的句子；這一句收藏過才顯示「已在單字庫」，換一句可以再加為新的例句
 const collected = new Map();
+const expandedExamples = new Set(); // 單字庫頁展開詳情的例句，重新讀取列表後維持展開
 let vocabRequest = 0;        // 搜尋時只顯示最後一次請求的結果
 let searchTimer = null;
 
@@ -217,30 +218,30 @@ function showAiResult(result) {
   setField("ai-example-zh", result.example_zh);
 }
 
+// 閱讀頁與單字庫頁共用；成功的結果存進 aiCache，回傳 { result, error }
+async function requestExplanation({ lemma, surface, pos, sentence }) {
+  try {
+    const res = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lemma, surface, pos, sentence }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { result: null, error: data.error?.message ?? "AI 解釋失敗，請稍後再試。" };
+    aiCache.set(aiKey({ lemma, surface, sentence }), data);
+    return { result: data, error: "" };
+  } catch {
+    return { result: null, error: "無法連線到伺服器。" };
+  }
+}
+
 async function explain() {
   const info = current;
   const key = aiKey(info);
   aiBtn.disabled = true;
   aiBtn.textContent = "AI 解釋中…";
   showAiMessage("");
-  let result = null;
-  let error = "";
-  try {
-    const res = await fetch("/api/explain", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lemma: info.lemma, surface: info.surface, pos: info.pos, sentence: info.sentence }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      result = data;
-      aiCache.set(key, result);
-    } else {
-      error = data.error?.message ?? "AI 解釋失敗，請稍後再試。";
-    }
-  } catch {
-    error = "無法連線到伺服器。";
-  }
+  const { result, error } = await requestExplanation(info);
   // 等待期間使用者可能已經點了別的字，結果已存入快取，這裡不更新畫面
   if (!current || aiKey(current) !== key) return;
   showAiResult(result);
@@ -296,6 +297,8 @@ async function collect() {
         surface: info.surface,
         meaning_zh: ai?.meaning_zh ?? "",
         usage_note: ai?.usage_note ?? "",
+        example_ja: ai?.example_ja ?? "",
+        example_zh: ai?.example_zh ?? "",
         context_sentence: info.sentence,
       }),
     });
@@ -378,6 +381,58 @@ function renderSentence(ex) {
   return div;
 }
 
+function detailField(dl, label, value, className = "", lang = "") {
+  if (!value) return;
+  const dt = document.createElement("dt");
+  dt.textContent = label;
+  const dd = document.createElement("dd");
+  dd.textContent = value;
+  if (className) dd.className = className;
+  if (lang) dd.lang = lang;
+  dl.append(dt, dd);
+}
+
+// 展開後的詳情：已查過 AI 解釋就顯示完整內容，還沒查就提供「AI 解釋」按鈕
+function renderExampleDetail(item, ex) {
+  const div = document.createElement("div");
+  div.className = "example-detail";
+  if (ex.meaning_zh) {
+    const dl = document.createElement("dl");
+    detailField(dl, "用法", ex.usage_note);
+    detailField(dl, "例句", ex.example_ja, "", "ja");
+    detailField(dl, "翻譯", ex.example_zh, "translation");
+    if (!dl.children.length) dl.textContent = "沒有其他說明。";
+    div.append(dl);
+    return div;
+  }
+  const note = document.createElement("p");
+  note.textContent = "還沒有 AI 解釋。";
+  div.append(note);
+  // 沒有原句（例如從 MCP 收藏）時無法解釋
+  if (!ex.context_sentence) return div;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "AI 解釋";
+  const message = document.createElement("p");
+  message.className = "message";
+  message.hidden = true;
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "AI 解釋中…";
+    const { error } = await requestExplanation({
+      lemma: item.lemma, surface: ex.surface || item.lemma, pos: item.pos, sentence: ex.context_sentence,
+    });
+    if (!error) return loadVocab(); // 後端已把解釋補進這個例句
+    btn.disabled = false;
+    btn.textContent = "AI 解釋";
+    message.textContent = error;
+    message.hidden = false;
+  });
+  div.append(btn, message);
+  return div;
+}
+
 // 一詞多義：每個例句各自有該句中的中文意思；只有一個例句時刪除整個詞即可，不另外顯示刪除鈕
 function renderExamples(item) {
   const ul = document.createElement("ul");
@@ -388,11 +443,26 @@ function renderExamples(item) {
     meaning.className = "meaning";
     meaning.textContent = ex.meaning_zh || "（尚未查 AI 解釋）";
     meaning.classList.toggle("missing", !ex.meaning_zh);
-    li.append(meaning);
+
+    const detail = renderExampleDetail(item, ex);
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "detail-toggle";
+    const setOpen = (open) => {
+      detail.hidden = !open;
+      toggle.textContent = open ? "收合 ▴" : "詳情 ▾";
+      toggle.setAttribute("aria-expanded", open);
+      if (open) expandedExamples.add(ex.id);
+      else expandedExamples.delete(ex.id);
+    };
+    setOpen(expandedExamples.has(ex.id));
+    toggle.addEventListener("click", () => setOpen(detail.hidden));
+
+    li.append(meaning, toggle);
     if (item.examples.length > 1) {
       li.append(deleteButton("example-delete", "×", "刪除這個例句", () => deleteExample(ex)));
     }
-    li.append(renderSentence(ex));
+    li.append(renderSentence(ex), detail);
     ul.append(li);
   }
   const td = document.createElement("td");
