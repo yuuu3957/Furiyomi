@@ -16,7 +16,10 @@
       <textarea id="text-input" placeholder="在這裡貼上日文文章…" lang="ja"></textarea>
       <div class="input-bar">
         <span id="char-count">0 / 20,000</span>
-        <button id="analyze-btn" type="button">標註假名</button>
+        <div class="actions">
+          <label id="pdf-btn" class="button secondary">上傳 PDF<input id="pdf-input" type="file" accept=".pdf,application/pdf" hidden></label>
+          <button id="analyze-btn" type="button">標註假名</button>
+        </div>
       </div>
       <p id="message" class="message" hidden></p>
     </section>

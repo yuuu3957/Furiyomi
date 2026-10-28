@@ -72,6 +72,18 @@ button {
 }
 button:disabled { opacity: 0.5; cursor: wait; }
 
+.actions { display: flex; gap: 8px; }
+/* 檔案選擇用 label 包住隱藏的 input，外觀做成按鈕 */
+.button.secondary {
+  padding: 8px 20px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--accent);
+  cursor: pointer;
+}
+.button.secondary.busy { opacity: 0.5; cursor: wait; pointer-events: none; }
+
 .message { color: var(--error); }
 
 .reader {

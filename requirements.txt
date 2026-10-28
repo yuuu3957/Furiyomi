@@ -8,3 +8,6 @@ httpx==0.28.1
 mcp==1.26.0
 openai==3.39.0
 python-dotenv==1.2.4
+pypdf==6.21.3
+python-multipart==0.0.32
+reportlab==5.1.0

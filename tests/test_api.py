@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from api.routes import llm_provider
 from core.llm_client import LLMError, get_provider
 from main import app
+from tests.test_pdf_reader import make_pdf
 
 client = TestClient(app)
 
@@ -142,3 +143,44 @@ def test_explain_invalid_body(use_provider, override):
     use_provider(FakeProvider("{}"))
     res = client.post("/api/explain", json={**EXPLAIN_BODY, **override})
     assert res.status_code == 422
+
+
+# --- PDF ---
+
+def upload_pdf(data, name="article.pdf"):
+    return client.post("/api/pdf/extract", files={"file": (name, data, "application/pdf")})
+
+
+def test_pdf_extract_returns_pages():
+    res = upload_pdf(make_pdf([["今日は天気がいいので、公園へ", "散歩に行きました。"]]))
+    assert res.status_code == 200
+    assert res.json()["pages"] == ["今日は天気がいいので、公園へ散歩に行きました。"]
+
+
+@pytest.mark.parametrize("pages, code", [
+    ([[]], "no_text"),
+    ([["Hello world."]], "no_japanese"),
+])
+def test_pdf_extract_rejects_unusable_pdf(pages, code):
+    res = upload_pdf(make_pdf(pages))
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == code
+
+
+def test_pdf_extract_rejects_non_pdf():
+    res = upload_pdf(b"not a pdf", name="note.txt")
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "invalid_pdf"
+
+
+def test_pdf_extract_rejects_large_file(monkeypatch):
+    monkeypatch.setattr("api.routes.MAX_PDF_BYTES", 10)
+    res = upload_pdf(make_pdf([["大きいファイル。"]]))
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "file_too_large"
+
+
+def test_pdf_extract_requires_file():
+    res = client.post("/api/pdf/extract")
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "invalid_request"

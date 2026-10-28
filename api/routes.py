@@ -2,16 +2,18 @@
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile
 from pydantic import BaseModel, Field
 
 from core.furigana import contains_japanese, pos_class, ruby_segments
 from core.llm_client import LLMError, Provider, explain, get_provider
 from core.paging import PAGE_LIMIT, split_pages
+from core.pdf_reader import PdfError, extract_text
 from core.tokenizer import tokenize
 
 MAX_TEXT_LENGTH = PAGE_LIMIT  # /analyze 一次只處理一頁
 MAX_DOCUMENT_LENGTH = 20000
+MAX_PDF_BYTES = 20 * 1024 * 1024
 
 router = APIRouter(prefix="/api")
 
@@ -50,6 +52,19 @@ def check_text(text: str, max_length: int) -> None:
 def paginate(req: TextRequest):
     check_text(req.text, MAX_DOCUMENT_LENGTH)
     return {"pages": split_pages(req.text)}
+
+
+@router.post("/pdf/extract")
+async def pdf_extract(file: UploadFile):
+    data = await file.read(MAX_PDF_BYTES + 1)
+    if len(data) > MAX_PDF_BYTES:
+        raise ApiError(400, "file_too_large", "PDF 檔案超過 20 MB。")
+    try:
+        text = extract_text(data)
+    except PdfError as e:
+        raise ApiError(400, e.code, e.message)
+    check_text(text, MAX_DOCUMENT_LENGTH)
+    return {"pages": split_pages(text)}
 
 
 @router.post("/analyze")

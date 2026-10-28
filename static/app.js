@@ -9,6 +9,8 @@ const SENTENCE_END = /[。！？!?\n]$/;
 const input = document.getElementById("text-input");
 const charCount = document.getElementById("char-count");
 const analyzeBtn = document.getElementById("analyze-btn");
+const pdfBtn = document.getElementById("pdf-btn");
+const pdfInput = document.getElementById("pdf-input");
 const message = document.getElementById("message");
 const reader = document.getElementById("reader");
 const article = document.getElementById("article");
@@ -271,7 +273,29 @@ async function analyze() {
   }
 }
 
+async function uploadPdf() {
+  const file = pdfInput.files[0];
+  pdfInput.value = ""; // 清掉，同一個檔案才能再選一次
+  if (!file) return;
+
+  showMessage("");
+  pdfBtn.classList.add("busy");
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch("/api/pdf/extract", { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) return showMessage(data.error?.message ?? "PDF 讀取失敗，請稍後再試。");
+    openDocument(data.pages);
+  } catch {
+    showMessage("無法連線到伺服器。");
+  } finally {
+    pdfBtn.classList.remove("busy");
+  }
+}
+
 input.addEventListener("input", updateCharCount);
+pdfInput.addEventListener("change", uploadPdf);
 analyzeBtn.addEventListener("click", analyze);
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) analyze();
