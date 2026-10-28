@@ -121,6 +121,16 @@ def add_vocab(
     return get_vocab(conn, cur.lastrowid)
 
 
+def fill_missing_meaning(conn: sqlite3.Connection, lemma: str, result: AIExplanation) -> bool:
+    """先收藏、後查 AI 解釋時，把中文意思與用法補進單字庫；已經有中文意思的不覆蓋。"""
+    with conn:
+        cur = conn.execute(
+            "UPDATE vocab SET meaning_zh = ?, usage_note = ? WHERE lemma = ? AND meaning_zh = ''",
+            (result.meaning_zh, result.usage_note, lemma),
+        )
+    return cur.rowcount > 0
+
+
 def _escape_like(keyword: str) -> str:
     return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -183,6 +193,7 @@ def explain_with_cache(
     lemma: str, surface: str, pos: str, sentence: str,
 ) -> AIExplanation:
     """先查快取，沒有才呼叫 LLM（失敗時丟 LLMError、不寫快取）；成功的查詢都記一筆，命中快取也算。
+    已收藏但還沒有中文意思的詞，順手補上。
 
     get_provider 等到真的要呼叫 LLM 才執行，所以沒設金鑰時快取裡有的仍查得到。
     """
@@ -191,4 +202,5 @@ def explain_with_cache(
         result = explain(get_provider(), lemma, surface, pos, sentence)
         save_cached_explanation(conn, lemma, surface, sentence, result)
     log_lookup(conn, lemma, pos)
+    fill_missing_meaning(conn, lemma, result)
     return result

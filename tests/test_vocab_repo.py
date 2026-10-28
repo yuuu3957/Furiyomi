@@ -6,8 +6,8 @@ import pytest
 
 from core.llm_client import AIExplanation, LLMError
 from core.vocab_repo import (
-    DuplicateVocabError, add_vocab, connect, db_path, delete_vocab, explain_with_cache, get_cached_explanation,
-    get_vocab, save_cached_explanation, search_vocab,
+    DuplicateVocabError, add_vocab, connect, db_path, delete_vocab, explain_with_cache, fill_missing_meaning,
+    get_cached_explanation, get_vocab, save_cached_explanation, search_vocab,
 )
 
 
@@ -148,3 +148,23 @@ def test_explain_with_cache_failure_not_saved(conn):
         explain_with_cache(conn, lambda: provider, "食べる", "食べ", "動詞", "寿司を食べた。")
     assert conn.execute("SELECT COUNT(*) FROM lookup_cache").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM lookup_log").fetchone()[0] == 0
+
+
+def test_fill_missing_meaning(conn):
+    entry = add_vocab(conn, "食べる", "たべる", "動詞")
+    assert fill_missing_meaning(conn, "食べる", EXPLANATION) is True
+    filled = get_vocab(conn, entry.id)
+    assert (filled.meaning_zh, filled.usage_note) == ("吃", "連用形。")
+
+
+def test_fill_missing_meaning_keeps_existing(conn):
+    entry = add_vocab(conn, "食べる", "たべる", "動詞", meaning_zh="進食", usage_note="原本的說明")
+    assert fill_missing_meaning(conn, "食べる", EXPLANATION) is False
+    assert get_vocab(conn, entry.id).meaning_zh == "進食"
+
+
+def test_explain_with_cache_fills_collected_word(conn):
+    entry = add_vocab(conn, "食べる", "たべる", "動詞")
+    provider = FakeProvider(json.dumps(asdict(EXPLANATION)))
+    explain_with_cache(conn, lambda: provider, "食べる", "食べ", "動詞", "寿司を食べた。")
+    assert get_vocab(conn, entry.id).meaning_zh == "吃"
